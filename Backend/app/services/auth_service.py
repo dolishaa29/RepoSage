@@ -29,6 +29,8 @@ def login(db: Session, data: LoginDto) -> str:
     user = db.query(User).filter(User.email == data.email).first()
     if user is None:
         raise HTTPException(status_code=401, detail="Wrong email or password")
+    if user.hashed_password is None:
+        raise HTTPException(status_code=401, detail="This account uses GitHub login")
 
     try:
         hasher.verify(user.hashed_password, data.password)

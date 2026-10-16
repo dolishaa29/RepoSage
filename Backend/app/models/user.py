@@ -1,12 +1,17 @@
-from sqlalchemy import String
-from sqlalchemy.orm import Mapped, mapped_column
-
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 from ..core.db import Base
 
 class User(Base):
     __tablename__ = "users"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str]
-    email: Mapped[str] = mapped_column(String, unique=True, index=True)
-    hashed_password: Mapped[str]  
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=True)  # empty for users who signed up with GitHub
+
+    github = relationship("GithubAccount", uselist=False, lazy="joined")
+
+    @property
+    def github_username(self):
+        return self.github.username if self.github else None

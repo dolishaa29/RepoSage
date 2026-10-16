@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { api } from '../api'
+import { GithubButton } from '../components'
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, notice }) {
   const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState('')
+  const [error, setError] = useState(notice || '')
   const [loading, setLoading] = useState(false)
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value })
@@ -50,6 +51,9 @@ export default function Login({ onLogin }) {
             {loading ? 'Please wait…' : 'Log in'}
           </button>
         </form>
+
+        <div className="divider">or</div>
+        <GithubButton label="Continue with GitHub" onError={setError} />
 
         <p className="muted switch">
           New here? <a href="#/register">Create an account</a>

@@ -4,3 +4,5 @@ psycopg[binary]
 python-dotenv
 python-jose[cryptography]
 argon2-cffi
+httpx
+cryptography

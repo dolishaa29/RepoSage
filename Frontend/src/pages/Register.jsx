@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { api } from '../api'
+import { GithubButton } from '../components'
 import { navigate } from '../router'
 
-export default function Register() {
+export default function Register({ notice }) {
   const [form, setForm] = useState({ name: '', email: '', password: '' })
-  const [error, setError] = useState('')
+  const [error, setError] = useState(notice || '')
   const [loading, setLoading] = useState(false)
 
   const update = (field) => (e) => setForm({ ...form, [field]: e.target.value })
@@ -56,6 +57,9 @@ export default function Register() {
             {loading ? 'Please wait…' : 'Create account'}
           </button>
         </form>
+
+        <div className="divider">or</div>
+        <GithubButton label="Continue with GitHub" onError={setError} />
 
         <p className="muted switch">
           Already have an account? <a href="#/login">Log in</a>

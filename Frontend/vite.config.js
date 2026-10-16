@@ -13,9 +13,12 @@ export default defineConfig(({ mode }) => {
       babel({ presets: [reactCompilerPreset()] })
     ],
     server: {
-      // forward /auth/* to FastAPI during development
+      // forward API routes to FastAPI during development
       proxy: {
-        '/auth': { target: backend, changeOrigin: true },
+        '/register': { target: backend, changeOrigin: true },
+        '/login': { target: backend, changeOrigin: true },
+        '/me': { target: backend, changeOrigin: true },
+        '/github': { target: backend, changeOrigin: true },
       },
     },
   }

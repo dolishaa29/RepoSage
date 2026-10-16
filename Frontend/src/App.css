@@ -63,7 +63,21 @@
 .profile dt { color: var(--muted); }
 .profile dd { margin: 0; color: var(--text-h); font-weight: 500; word-break: break-word; }
 
+.divider { display: flex; align-items: center; gap: 12px; margin: 16px 0; color: var(--muted); font-size: 13px; }
+.divider::before, .divider::after { content: ''; flex: 1; border-top: 1px solid var(--border); }
+.btn.github { width: 100%; display: inline-flex; justify-content: center; align-items: center; gap: 8px; background: #24292f; color: #fff; }
+.btn.github:hover:not(:disabled) { background: #32383f; }
+.card .btn.github { width: auto; }
+
+.repos { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; }
+.repo { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.repo-name { font-weight: 600; word-break: break-all; }
+.repo-desc { margin: 4px 0 0; font-size: 13px; }
+.repo-meta { display: flex; gap: 8px; align-items: center; flex-shrink: 0; font-size: 13px; }
+.tag { padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid var(--border); color: var(--muted); }
+
 @media (max-width: 640px) {
+  .repo { flex-direction: column; }
   .topbar { padding: 12px 16px; }
   .topbar-right .muted { display: none; }
 }
