@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import Base, engine
-from .models import github_account, user  
+from .models import user  
 from .routers import auth, github
 
 Base.metadata.create_all(bind=engine)

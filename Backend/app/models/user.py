@@ -1,5 +1,4 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import relationship
+from sqlalchemy import BigInteger, Column, Integer, String
 from ..core.db import Base
 
 class User(Base):
@@ -10,8 +9,7 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=True)  # empty for users who signed up with GitHub
 
-    github = relationship("GithubAccount", uselist=False, lazy="joined")
-
-    @property
-    def github_username(self):
-        return self.github.username if self.github else None
+    # filled when the user logs in with / connects GitHub
+    github_id = Column(BigInteger, unique=True, nullable=True)
+    github_username = Column(String, nullable=True)
+    github_token = Column(String, nullable=True)  # encrypted

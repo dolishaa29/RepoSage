@@ -25,10 +25,9 @@ async function request(path, { method = 'GET', body } = {}) {
   }
 
   const data = await res.json().catch(() => null)
-  // logged-in request rejected: the token expired, so start over at the login page
+  // token expired -> forget it and reload, which shows the login page
   if (res.status === 401 && token && path !== '/login') {
     clearToken()
-    history.replaceState(null, '', '#/?error=' + encodeURIComponent('Your session expired, please log in again'))
     window.location.reload()
   }
   if (!res.ok) {
@@ -44,7 +43,7 @@ export const api = {
   login: (email, password) => request('/login', { method: 'POST', body: { email, password } }),
   me: () => request('/me'),
 
-  githubLoginUrl: () => request('/github/login-url'),
-  githubConnectUrl: () => request('/github/connect-url'),
+  githubLogin: (code) => request('/github/login', { method: 'POST', body: { code } }),
+  githubConnect: (code) => request('/github/connect', { method: 'POST', body: { code } }),
   githubRepos: () => request('/github/repos'),
 }

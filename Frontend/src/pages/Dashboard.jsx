@@ -48,7 +48,7 @@ export default function Dashboard({ user, onLogout, notice }) {
           {!connected && (
             <>
               <p className="muted">Connect your GitHub account to see your repositories, including private ones.</p>
-              <GithubButton label="Connect GitHub" connect onError={setError} />
+              <GithubButton label="Connect GitHub" />
             </>
           )}
           {connected && loading && <p className="muted">Loading repositories…</p>}

@@ -53,7 +53,7 @@ export default function Login({ onLogin, notice }) {
         </form>
 
         <div className="divider">or</div>
-        <GithubButton label="Continue with GitHub" onError={setError} />
+        <GithubButton label="Continue with GitHub" />
 
         <p className="muted switch">
           New here? <a href="#/register">Create an account</a>

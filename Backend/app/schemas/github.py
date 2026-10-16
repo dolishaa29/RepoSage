@@ -1,8 +1,5 @@
 from pydantic import BaseModel
 
-class UrlResponse(BaseModel):
-    url: str
-
 class RepoResponse(BaseModel):
     id: int
     full_name: str

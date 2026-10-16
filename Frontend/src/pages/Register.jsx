@@ -59,7 +59,7 @@ export default function Register({ notice }) {
         </form>
 
         <div className="divider">or</div>
-        <GithubButton label="Continue with GitHub" onError={setError} />
+        <GithubButton label="Continue with GitHub" />
 
         <p className="muted switch">
           Already have an account? <a href="#/login">Log in</a>
