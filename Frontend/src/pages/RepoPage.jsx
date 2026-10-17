@@ -83,6 +83,7 @@ export default function RepoPage({ user, onLogout, repo }) {
 function ReviewResult({ review }) {
   return (
     <div className="review">
+      {review.ai && <p className="muted small-text ai-name">Reviewed by {review.ai}</p>}
       <p className="review-summary">{review.summary}</p>
       {review.findings.length === 0 && <p className="good">No problems found.</p>}
       <ul className="findings">

@@ -8,9 +8,10 @@ class Review(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    repo = Column(String, nullable=False)          # "owner/name"
+    repo = Column(String, nullable=False)         
     pr_number = Column(Integer, nullable=False)
     pr_title = Column(String, nullable=False)
+    ai = Column(String, nullable=True)             
     summary = Column(Text, nullable=False)
-    findings = Column(JSON, nullable=False)        # list of problems the AI found
+    findings = Column(JSON, nullable=False)        
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

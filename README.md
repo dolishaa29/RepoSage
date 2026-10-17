@@ -1,6 +1,6 @@
 # RepoSage
 
-A web app where you log in, connect your GitHub account, pick a pull request, and let AI (Claude on AWS Bedrock)
+A web app where you log in, connect your GitHub account, pick a pull request, and let AI (Google Gemini)
 review the changed code for bugs and security problems.
 
 **Status:** login, register, GitHub login/connect, repo list, PR list and AI review of a PR work.
@@ -15,7 +15,7 @@ review the changed code for bugs and security problems.
 | Database | PostgreSQL on Neon (cloud) |
 | Login | JWT tokens (python-jose), passwords hashed with argon2 |
 | GitHub | GitHub OAuth App, `httpx` to call the GitHub API |
-| AI | LangChain + `langchain-aws` → Claude on AWS Bedrock |
+| AI | LangChain + `langchain-google-genai` → Google Gemini |
 | Frontend | React + Vite |
 
 ---
@@ -32,7 +32,7 @@ Backend/
     │   ├── db.py             database connection, get_db
     │   ├── auth.py           create_token, auth (checks the JWT on protected routes)
     │   ├── crypto.py         encrypt / decrypt the GitHub token
-    │   └── llm.py            the Claude model (AWS Bedrock)
+    │   └── llm.py            the AI model (Gemini)
     ├── models/
     │   ├── user.py           users table
     │   └── review.py         reviews table
@@ -110,7 +110,7 @@ POST /reviews {repo, pr_number}
         ▼
 Backend:
   1. GitHub: PR title + changed files (the diff)
-  2. Claude on Bedrock: "find bugs and security problems in this diff"
+  2. Gemini: "find bugs and security problems in this diff"
      → answer comes back as a ReviewResult object (summary + findings), not free text
   3. save it in the reviews table
         │
@@ -118,8 +118,8 @@ Backend:
 RepoPage shows: summary + each finding (severity, file:line, why, how to fix)
 ```
 
-- Structured output uses `with_structured_output(ReviewResult, method="json_schema")`, which uses
-  Bedrock's native JSON-schema output (not forced tool calls, which new Claude models reject).
+- Structured output uses `with_structured_output(ReviewResult, method="json_schema")`: the model must answer
+  in the `ReviewResult` shape (summary + findings), so we get an object back, not free text.
 - Binary files are skipped. A diff over 200,000 characters is refused instead of being cut.
 - GitHub returns the first 30 changed files of a PR.
 
@@ -166,6 +166,7 @@ Interactive docs: http://localhost:8001/docs
 | user_id | who asked for the review |
 | repo | `owner/name` |
 | pr_number, pr_title | which pull request |
+| ai | which AI did the review (`gemini`) |
 | summary | AI's short summary |
 | findings | JSON list: file, line, severity (high/medium/low), category, title, explanation, suggestion |
 | created_at | |
@@ -207,22 +208,13 @@ TOKEN_ENCRYPTION_KEY=<fernet key>
 GITHUB_CLIENT_ID=<from step 1>
 GITHUB_CLIENT_SECRET=<from step 1>
 
-# AWS Bedrock (for the AI review)
-AWS_BEARER_TOKEN_BEDROCK=<Bedrock long-term API key>
-AWS_REGION=us-east-1
-BEDROCK_MODEL_ID=us.anthropic.claude-opus-5-5
+# Google Gemini (key from aistudio.google.com)
+GOOGLE_API_KEY=<Gemini API key>
+GEMINI_MODEL=gemini-flash-latest
 ```
 
-Instead of `AWS_BEARER_TOKEN_BEDROCK` you can use an IAM user's `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`.
-When the backend runs on AWS itself (EC2 / ECS / Lambda), use an IAM role: no keys at all.
-
-**AWS Bedrock setup (one time):**
-1. AWS console, region **US East (N. Virginia)** → **Amazon Bedrock** → Model catalog → Claude model → submit the Anthropic use-case form. Wait until access is granted (test it in the Playground).
-2. Bedrock → **Inference profiles** → copy the ID, e.g. `us.anthropic.claude-opus-5-5` → `BEDROCK_MODEL_ID`.
-   Claude 5.x models only run through an inference profile (`us.` / `global.` prefix), not the bare model ID.
-3. Bedrock → **API keys** → **Long-term API keys** → generate (set an expiry) → `AWS_BEARER_TOKEN_BEDROCK`.
-   Short-term keys expire with the console session (max 12 h), so they are not useful for the app.
-4. Billing → **Budgets** → Monthly cost budget (e.g. $5) for email alerts.
+**Gemini setup (one time):** aistudio.google.com → **Get API key** → create key → `GOOGLE_API_KEY`.
+On the free tier use `gemini-flash-latest` (Pro models are quota-limited).
 
 Make the random values with:
 
@@ -285,17 +277,17 @@ If you change them, also change the CORS origin in `Backend/app/main.py` and the
 | GitHub says "redirect_uri is not associated" | the URL GitHub sends users back to must be registered in the OAuth App: `http://localhost:5174` (or `http://localhost:8001/github/callback`, which forwards to it) |
 | GitHub calls fail with 401 / "connect GitHub again" | the saved token expired or was revoked → Reconnect GitHub |
 | Repos stop loading after some hours | "Expire user access tokens" is ticked in the GitHub OAuth App → untick it, then Reconnect GitHub |
-| "AI is not set up" | add `BEDROCK_MODEL_ID` to `.env` |
-| "AI review failed: Unable to locate credentials" | AWS keys missing in `.env` |
-| "AI review failed: ... AccessDenied / model access" | enable the model in Bedrock and give the IAM user `bedrock:InvokeModel` |
-| "... is not available for this account" (every Claude model) | the Anthropic use-case form is not approved yet, or the AWS account is too new / not verified → wait, check in the Playground, or contact AWS support |
-| "AI review failed: ... model identifier is invalid" | wrong `BEDROCK_MODEL_ID` or wrong `AWS_REGION`; some models need the inference profile ID |
+| "AI is not set up" | add `GOOGLE_API_KEY` to `.env` |
+| Gemini `429 RESOURCE_EXHAUSTED` | free-tier quota used up (Pro models have almost none) → use `gemini-flash-latest`, wait, or enable billing |
 
 ---
 
 ## Next steps
 
-- [x] AI review of a pull request (LangChain + Claude on Bedrock)
+- [x] AI review of a pull request (LangChain + Gemini)
+- [ ] Second AI as backup. Claude on AWS Bedrock is blocked on this AWS account (Marketplace agreement
+      `NOT_AVAILABLE`). Bedrock models that worked in a test with our `ReviewResult` format:
+      `qwen.qwen3-coder-next`, `deepseek.v3.2`, `mistral.devstral-2-123b`, `moonshotai.kimi-k2.5`, `zai.glm-5`
 - [ ] Alembic migrations (instead of manual `ALTER TABLE`)
 - [ ] AI writes a fix + unit tests, human approves / rejects, then a new branch + PR on GitHub
 - [ ] LangGraph: split into 3 agents (structure, security, fix + tests)

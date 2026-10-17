@@ -41,12 +41,12 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int) -> Review:
     if len(diff) > MAX_DIFF_CHARS:
         raise HTTPException(status_code=400, detail="This pull request is too big to review")
 
-    # 2. ask Claude, and get the answer back as a ReviewResult object
+    # 2. ask Gemini, and get the answer back as a ReviewResult object
     reviewer = get_llm().with_structured_output(ReviewResult, method="json_schema")
     try:
         result = reviewer.invoke(PROMPT.format(title=pr["title"], diff=diff))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI review failed: {e}")
+        raise HTTPException(status_code=502, detail=f"AI review failed: {str(e)[:300]}")
 
     # 3. save it
     review = Review(
@@ -54,6 +54,7 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int) -> Review:
         repo=repo,
         pr_number=pr_number,
         pr_title=pr["title"],
+        ai="gemini",
         summary=result.summary,
         findings=[f.model_dump() for f in result.findings],
     )

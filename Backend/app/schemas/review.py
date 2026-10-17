@@ -26,6 +26,7 @@ class ReviewResponse(BaseModel):
     repo: str
     pr_number: int
     pr_title: str
+    ai: str | None
     summary: str
     findings: list[Finding]
     created_at: datetime

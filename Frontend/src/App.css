@@ -78,6 +78,7 @@
 
 .reconnect { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
 .reconnect p { margin: 0 0 10px; }
+.ai-name { text-transform: capitalize; }
 .back { font-size: 14px; }
 .pulls { list-style: none; padding: 0; margin: 16px 0 0; display: flex; flex-direction: column; gap: 12px; }
 .pull { border: 1px solid var(--border); border-radius: 10px; padding: 14px; }

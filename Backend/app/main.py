@@ -1,8 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from .core.db import Base, engine
-from .models import review as review_model, user  # importing a model creates its table
+from .models import review as review_model, user 
 from .routers import auth, github, review
 
 Base.metadata.create_all(bind=engine)

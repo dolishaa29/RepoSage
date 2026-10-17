@@ -1,5 +1,5 @@
 from pydantic import BaseModel
 
 class ReviewDto(BaseModel):
-    repo: str        # "owner/name"
+    repo: str       
     pr_number: int
