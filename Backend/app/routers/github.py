@@ -6,9 +6,8 @@ from sqlalchemy.orm import Session
 
 from ..core.auth import auth
 from ..core.db import get_db
-from ..dto.github_dto import GithubCodeDto
 from ..models.user import User
-from ..schemas.github import PullResponse, RepoResponse
+from ..schemas.github import GithubCodeDto, PullResponse, RepoResponse
 from ..schemas.user import TokenResponse, UserResponse
 from ..services import github_service
 

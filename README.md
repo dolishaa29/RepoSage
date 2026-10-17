@@ -31,13 +31,11 @@ Backend/
     ├── core/
     │   ├── db.py             database connection, get_db
     │   ├── auth.py           create_token, auth (checks the JWT on protected routes)
-    │   ├── crypto.py         encrypt / decrypt the GitHub token
-    │   └── llm.py            the AI model (Gemini)
+    │   └── llm.py            the AI model: init_chat_model("google_genai:gemini-flash-latest")
     ├── models/
     │   ├── user.py           users table
     │   └── review.py         reviews table
-    ├── dto/                  what the frontend SENDS (request bodies)
-    ├── schemas/              what the backend RETURNS (responses)
+    ├── schemas/              request bodies the frontend SENDS (…Dto) + responses the backend RETURNS
     ├── services/             the real logic
     │   ├── auth_service.py   register, login
     │   ├── github_service.py GitHub login, connect, repos, pull requests
@@ -95,7 +93,8 @@ The token lasts 60 minutes. When it expires the frontend goes back to the login 
 
 - **Client ID + Client Secret** identify the *app*. There is one pair for the whole app.
 - **GitHub access token** belongs to *one user*. Each user gets their own, and it only sees their own repos.
-- The token is saved **encrypted** (`core/crypto.py`) and is never sent to the frontend.
+- The token is saved in the `users` table and is never sent to the frontend.
+  ⚠️ For now it is saved as plain text. **Encrypt it before production** (see Next steps).
 - **Reconnect GitHub** (dashboard, when already connected) runs the same flow again and saves a fresh token.
   Use it when GitHub calls start failing. To switch to a different GitHub account, log out of github.com first.
 
@@ -118,9 +117,9 @@ Backend:
 RepoPage shows: summary + each finding (severity, file:line, why, how to fix)
 ```
 
-- Structured output uses `with_structured_output(ReviewResult, method="json_schema")`: the model must answer
-  in the `ReviewResult` shape (summary + findings), so we get an object back, not free text.
-- Binary files are skipped. A diff over 200,000 characters is refused instead of being cut.
+- The AI part is a LangChain chain: `chain = prompt | model.with_structured_output(ReviewResult)`.
+  The model must answer in the `ReviewResult` shape (summary + findings), so we get an object back, not free text.
+- Binary files (images etc.) are skipped.
 - GitHub returns the first 30 changed files of a PR.
 
 ---
@@ -156,7 +155,7 @@ Interactive docs: http://localhost:8001/docs
 | hashed_password | empty for users who signed up with GitHub |
 | github_id | GitHub's user id, unique |
 | github_username | e.g. `dolishaa29` |
-| github_token | encrypted GitHub access token |
+| github_token | GitHub access token (plain text for now, encrypt before production) |
 
 **reviews**
 
@@ -204,26 +203,21 @@ Create `Backend/.env`:
 ```
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 JWT=<long random string>
-TOKEN_ENCRYPTION_KEY=<fernet key>
 GITHUB_CLIENT_ID=<from step 1>
 GITHUB_CLIENT_SECRET=<from step 1>
 
 # Google Gemini (key from aistudio.google.com)
 GOOGLE_API_KEY=<Gemini API key>
-GEMINI_MODEL=gemini-flash-latest
 ```
 
 **Gemini setup (one time):** aistudio.google.com → **Get API key** → create key → `GOOGLE_API_KEY`.
-On the free tier use `gemini-flash-latest` (Pro models are quota-limited).
+The model name is set in `core/llm.py` (`gemini-flash-latest`; Pro models are quota-limited on the free tier).
 
 Make the random values with:
 
 ```bash
 python -c "import secrets; print(secrets.token_hex(32))"                                  # JWT
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())" # TOKEN_ENCRYPTION_KEY
 ```
-
-Do not change `TOKEN_ENCRYPTION_KEY` later: saved GitHub tokens could not be decrypted any more.
 
 Run:
 
@@ -283,6 +277,13 @@ If you change them, also change the CORS origin in `Backend/app/main.py` and the
 ---
 
 ## Next steps
+
+**Before production (must do):**
+- [ ] Encrypt the GitHub token in the database again (Fernet with a `TOKEN_ENCRYPTION_KEY` in `.env`;
+      the old `core/crypto.py` is in git history: `git log --all -- Backend/app/core/crypto.py`)
+- [ ] Long random `JWT` secret, new GitHub client secret, new Gemini key (old ones were shared)
+
+**Features:**
 
 - [x] AI review of a pull request (LangChain + Gemini)
 - [ ] Second AI as backup. Claude on AWS Bedrock is blocked on this AWS account (Marketplace agreement

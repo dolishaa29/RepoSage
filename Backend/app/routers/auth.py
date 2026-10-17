@@ -4,8 +4,7 @@ from sqlalchemy.orm import Session
 from ..core.auth import auth
 from ..core.db import get_db
 from ..models.user import User
-from ..dto.auth_dto import LoginDto, RegisterDto
-from ..schemas.user import TokenResponse, UserResponse
+from ..schemas.user import LoginDto, RegisterDto, TokenResponse, UserResponse
 from ..services import auth_service
 
 router = APIRouter(tags=["Auth"])

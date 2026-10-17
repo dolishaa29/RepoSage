@@ -5,14 +5,13 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from ..core.auth import create_token
-from ..core.crypto import decrypt, encrypt
 from ..models.user import User
 
 CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
 
 
-def login(db: Session, code: str) -> str:
+def login(db: Session, code: str):
     token = get_github_token(code)
     github_user = call_github(token, "/user")
 
@@ -29,7 +28,7 @@ def login(db: Session, code: str) -> str:
     return create_token(user.id)
 
 
-def connect(db: Session, user: User, code: str) -> User:
+def connect(db: Session, user: User, code: str):
     token = get_github_token(code)
     github_user = call_github(token, "/user")
 
@@ -44,16 +43,16 @@ def connect(db: Session, user: User, code: str) -> User:
 
 
 
-def get_repos(user: User) -> list[dict]:
+def get_repos(user: User):
     if user.github_token is None:
         raise HTTPException(status_code=400, detail="Connect GitHub first")
-    return call_github(decrypt(user.github_token), "/user/repos?sort=updated")  # newest first (GitHub sends 30)
+    return call_github(user.github_token, "/user/repos?sort=updated")  # newest first (GitHub sends 30)
 
 
-def get_pulls(user: User, repo: str) -> list[dict]:
+def get_pulls(user: User, repo: str):
     if user.github_token is None:
         raise HTTPException(status_code=400, detail="Connect GitHub first")
-    pulls = call_github(decrypt(user.github_token), f"/repos/{repo}/pulls")
+    pulls = call_github(user.github_token, f"/repos/{repo}/pulls")
     return [
         {"number": p["number"], "title": p["title"], "author": p["user"]["login"], "html_url": p["html_url"]}
         for p in pulls
@@ -63,10 +62,10 @@ def get_pulls(user: User, repo: str) -> list[dict]:
 def save_github(user: User, github_user: dict, token: str):
     user.github_id = github_user["id"]
     user.github_username = github_user["login"]
-    user.github_token = encrypt(token)
+    user.github_token = token
 
 
-def get_github_token(code: str) -> str:
+def get_github_token(code: str):
     res = httpx.post(
         "https://github.com/login/oauth/access_token",
         data={"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "code": code},
@@ -78,7 +77,7 @@ def get_github_token(code: str) -> str:
     return token
 
 
-def get_email(token: str) -> str:
+def get_email(token: str):
     emails = call_github(token, "/user/emails")
     for item in emails:
         if item["primary"]:

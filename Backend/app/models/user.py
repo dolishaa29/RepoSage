@@ -10,4 +10,4 @@ class User(Base):
     hashed_password = Column(String, nullable=True)  
     github_id = Column(BigInteger, unique=True, nullable=True)
     github_username = Column(String, nullable=True)
-    github_token = Column(String, nullable=True)  
+    github_token = Column(String, nullable=True) 

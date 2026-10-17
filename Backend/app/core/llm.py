@@ -1,11 +1,6 @@
-import os
+from dotenv import load_dotenv
+from langchain.chat_models import init_chat_model
 
-from fastapi import HTTPException
-from langchain_google_genai import ChatGoogleGenerativeAI
+load_dotenv()
 
-
-def get_llm() -> ChatGoogleGenerativeAI:
-    key = os.getenv("GOOGLE_API_KEY")
-    if not key:
-        raise HTTPException(status_code=500, detail="AI is not set up: add GOOGLE_API_KEY to .env")
-    return ChatGoogleGenerativeAI(model=os.getenv("GEMINI_MODEL", "gemini-flash-latest"), api_key=key)
+model = init_chat_model("google_genai:gemini-flash-latest")

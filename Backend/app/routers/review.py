@@ -3,9 +3,8 @@ from sqlalchemy.orm import Session
 
 from ..core.auth import auth
 from ..core.db import get_db
-from ..dto.review_dto import ReviewDto
 from ..models.user import User
-from ..schemas.review import ReviewResponse
+from ..schemas.review import ReviewDto, ReviewResponse
 from ..services import review_service
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])

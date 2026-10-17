@@ -18,6 +18,12 @@ class ReviewResult(BaseModel):
     summary: str = Field(description="2-3 sentences about the pull request and its overall risk")
     findings: list[Finding]
 
+# ---------- what the frontend sends ----------
+
+class ReviewDto(BaseModel):
+    repo: str        # "owner/name"
+    pr_number: int
+
 # ---------- what the API returns ----------
 
 class ReviewResponse(BaseModel):

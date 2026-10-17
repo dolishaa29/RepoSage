@@ -5,12 +5,12 @@ from sqlalchemy.orm import Session
 
 from ..core.auth import create_token
 from ..models.user import User
-from ..dto.auth_dto import LoginDto, RegisterDto
+from ..schemas.user import LoginDto, RegisterDto
 
 hasher = PasswordHasher()
 
 
-def register(db: Session, data: RegisterDto) -> User:
+def register(db: Session, data: RegisterDto):
     if db.query(User).filter(User.email == data.email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
@@ -25,7 +25,7 @@ def register(db: Session, data: RegisterDto) -> User:
     return user
 
 
-def login(db: Session, data: LoginDto) -> str:
+def login(db: Session, data: LoginDto):
     user = db.query(User).filter(User.email == data.email).first()
     if user is None:
         raise HTTPException(status_code=401, detail="Wrong email or password")

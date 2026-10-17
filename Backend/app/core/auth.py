@@ -13,16 +13,13 @@ SECRET_KEY = os.getenv("JWT")
 bearer = HTTPBearer()
 
 
-def create_token(user_id: int) -> str:
+def create_token(user_id: int):
     expire = datetime.now(timezone.utc) + timedelta(minutes=60)
     payload = {"sub": str(user_id), "exp": expire}
     return jwt.encode(payload, SECRET_KEY)
 
 
-def auth(
-    creds: HTTPAuthorizationCredentials = Depends(bearer),
-    db: Session = Depends(get_db),
-) -> User:
+def auth( creds: HTTPAuthorizationCredentials = Depends(bearer), db: Session = Depends(get_db)):
     try:
         payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=["HS256"])
         user_id = int(payload["sub"])
