@@ -47,7 +47,17 @@ def connect(db: Session, user: User, code: str) -> User:
 def get_repos(user: User) -> list[dict]:
     if user.github_token is None:
         raise HTTPException(status_code=400, detail="Connect GitHub first")
-    return call_github(decrypt(user.github_token), "/user/repos")
+    return call_github(decrypt(user.github_token), "/user/repos?sort=updated")  # newest first (GitHub sends 30)
+
+
+def get_pulls(user: User, repo: str) -> list[dict]:
+    if user.github_token is None:
+        raise HTTPException(status_code=400, detail="Connect GitHub first")
+    pulls = call_github(decrypt(user.github_token), f"/repos/{repo}/pulls")
+    return [
+        {"number": p["number"], "title": p["title"], "author": p["user"]["login"], "html_url": p["html_url"]}
+        for p in pulls
+    ]
 
 
 def save_github(user: User, github_user: dict, token: str):

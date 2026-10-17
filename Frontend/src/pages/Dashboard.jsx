@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
-import { GithubButton } from '../components'
+import { GithubButton, TopBar } from '../components'
 
 export default function Dashboard({ user, onLogout, notice }) {
   const connected = Boolean(user.github_username)
@@ -19,15 +19,7 @@ export default function Dashboard({ user, onLogout, notice }) {
 
   return (
     <div className="layout">
-      <header className="topbar">
-        <a href="#/" className="brand">
-          <span className="brand-mark">◆</span> gitAudit
-        </a>
-        <div className="topbar-right">
-          <span className="muted">Hi, {user.name}</span>
-          <button className="btn ghost" onClick={onLogout}>Log out</button>
-        </div>
-      </header>
+      <TopBar user={user} onLogout={onLogout} />
       <main className="content">
         {error && <div className="alert error">{error}</div>}
 
@@ -41,6 +33,12 @@ export default function Dashboard({ user, onLogout, notice }) {
             <dt>GitHub</dt>
             <dd>{connected ? `@${user.github_username}` : 'Not connected'}</dd>
           </dl>
+          {connected && (
+            <div className="reconnect">
+              <p className="muted small-text">GitHub not working, or repos missing? Connect it again.</p>
+              <GithubButton label="Reconnect GitHub" />
+            </div>
+          )}
         </section>
 
         <section className="card">
@@ -52,13 +50,13 @@ export default function Dashboard({ user, onLogout, notice }) {
             </>
           )}
           {connected && loading && <p className="muted">Loading repositories…</p>}
-          {connected && !loading && repos.length === 0 && <p className="muted">No repositories found.</p>}
+          {connected && !loading && !error && repos.length === 0 && <p className="muted">No repositories found.</p>}
           {repos.length > 0 && (
             <ul className="repos">
               {repos.map((r) => (
                 <li key={r.id} className="repo">
                   <div>
-                    <a className="repo-name" href={r.html_url} target="_blank" rel="noreferrer">
+                    <a className="repo-name" href={`#/repo/${r.full_name}`}>
                       {r.full_name}
                     </a>
                     {r.description && <p className="muted repo-desc">{r.description}</p>}

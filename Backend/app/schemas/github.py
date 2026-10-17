@@ -8,3 +8,9 @@ class RepoResponse(BaseModel):
     description: str | None
     html_url: str
     updated_at: str
+
+class PullResponse(BaseModel):
+    number: int
+    title: str
+    author: str
+    html_url: str

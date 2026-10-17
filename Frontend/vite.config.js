@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => {
         '/login': { target: backend, changeOrigin: true },
         '/me': { target: backend, changeOrigin: true },
         '/github': { target: backend, changeOrigin: true },
+        '/reviews': { target: backend, changeOrigin: true },
       },
     },
   }

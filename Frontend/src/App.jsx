@@ -4,6 +4,7 @@ import { navigate, useRoute } from './router'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
+import RepoPage from './pages/RepoPage'
 import './App.css'
 
 // Runs once when the page opens and returns the logged-in user (or null).
@@ -58,9 +59,12 @@ function App() {
 
   if (checking) return <div className="center muted">Loading…</div>
   if (!user) {
-    return route === 'register' ? <Register notice={error} /> : <Login onLogin={onLogin} notice={error} />
+    return route.page === 'register' ? <Register notice={error} /> : <Login onLogin={onLogin} notice={error} />
   }
 
+  if (route.page === 'repo') {
+    return <RepoPage key={route.repo} user={user} onLogout={logout} repo={route.repo} />
+  }
   return <Dashboard user={user} onLogout={logout} notice={error} />
 }
 

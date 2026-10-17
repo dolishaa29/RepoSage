@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-// tiny hash router: #/login , #/register , #/
+// tiny hash router: #/login , #/register , #/repo/owner/name , #/
 export function useRoute() {
   const [hash, setHash] = useState(window.location.hash)
   useEffect(() => {
@@ -8,9 +8,10 @@ export function useRoute() {
     window.addEventListener('hashchange', onChange)
     return () => window.removeEventListener('hashchange', onChange)
   }, [])
-  if (hash.startsWith('#/register')) return 'register'
-  if (hash.startsWith('#/login')) return 'login'
-  return 'dashboard'
+  if (hash.startsWith('#/register')) return { page: 'register' }
+  if (hash.startsWith('#/login')) return { page: 'login' }
+  if (hash.startsWith('#/repo/')) return { page: 'repo', repo: hash.slice('#/repo/'.length) }
+  return { page: 'dashboard' }
 }
 
 export const navigate = (path) => {

@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .core.db import Base, engine
-from .models import user  
-from .routers import auth, github
+from .models import review as review_model, user  # importing a model creates its table
+from .routers import auth, github, review
 
 Base.metadata.create_all(bind=engine)
 
@@ -18,3 +18,4 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(github.router)
+app.include_router(review.router)

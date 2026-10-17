@@ -1,6 +1,7 @@
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID
 
 // Sends the user to GitHub. GitHub sends them back to http://localhost:5174/?code=...
+// (directly, or through the backend's /github/callback - see routers/github.py)
 // and App.jsx finishes the login (or connects GitHub if already logged in).
 export function GithubButton({ label }) {
   const goToGithub = () => {
@@ -17,5 +18,19 @@ export function GithubButton({ label }) {
       </svg>
       {label}
     </button>
+  )
+}
+
+export function TopBar({ user, onLogout }) {
+  return (
+    <header className="topbar">
+      <a href="#/" className="brand">
+        <span className="brand-mark">◆</span> gitAudit
+      </a>
+      <div className="topbar-right">
+        <span className="muted">Hi, {user.name}</span>
+        <button className="btn ghost" onClick={onLogout}>Log out</button>
+      </div>
+    </header>
   )
 }

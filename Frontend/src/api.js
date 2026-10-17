@@ -46,4 +46,8 @@ export const api = {
   githubLogin: (code) => request('/github/login', { method: 'POST', body: { code } }),
   githubConnect: (code) => request('/github/connect', { method: 'POST', body: { code } }),
   githubRepos: () => request('/github/repos'),
+  githubPulls: (repo) => request(`/github/repos/${repo}/pulls`),
+
+  createReview: (repo, pr_number) => request('/reviews', { method: 'POST', body: { repo, pr_number } }),
+  listReviews: (repo) => request(`/reviews?repo=${encodeURIComponent(repo)}`),
 }
