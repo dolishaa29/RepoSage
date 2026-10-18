@@ -16,8 +16,6 @@ router = APIRouter(prefix="/github", tags=["GitHub"])
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5174")
 
 
-# If the GitHub OAuth App's callback URL is http://localhost:8001/github/callback,
-# GitHub sends the user here. We just pass ?code=...&state=... on to the frontend.
 @router.get("/callback")
 def callback(request: Request):
     return RedirectResponse(f"{FRONTEND_URL}/?{request.url.query}")

@@ -3,7 +3,6 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-# ---------- what the AI must return ----------
 
 class Finding(BaseModel):
     file: str = Field(description="file path from the diff")
@@ -18,13 +17,11 @@ class ReviewResult(BaseModel):
     summary: str = Field(description="2-3 sentences about the pull request and its overall risk")
     findings: list[Finding]
 
-# ---------- what the frontend sends ----------
 
 class ReviewDto(BaseModel):
-    repo: str        # "owner/name"
+    repo: str        
     pr_number: int
 
-# ---------- what the API returns ----------
 
 class ReviewResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

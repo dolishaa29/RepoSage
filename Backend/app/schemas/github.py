@@ -1,11 +1,9 @@
 from pydantic import BaseModel
 
-# ---------- what the frontend sends ----------
 
 class GithubCodeDto(BaseModel):
     code: str
 
-# ---------- what the API returns ----------
 
 class RepoResponse(BaseModel):
     id: int

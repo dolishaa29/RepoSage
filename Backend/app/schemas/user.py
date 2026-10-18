@@ -1,6 +1,5 @@
 from pydantic import BaseModel, ConfigDict, EmailStr
 
-# ---------- what the frontend sends ----------
 
 class RegisterDto(BaseModel):
     name: str
@@ -11,7 +10,6 @@ class LoginDto(BaseModel):
     email: EmailStr
     password: str
 
-# ---------- what the API returns ----------
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
