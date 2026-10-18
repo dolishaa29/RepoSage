@@ -46,12 +46,23 @@ Backend/
         └── review.py         /reviews
 
 Frontend/src/
-├── App.jsx                   decides which page to show, finishes GitHub login
-├── api.js                    all calls to the backend
-├── router.js                 #/login  #/register  #/
-├── components.jsx            GithubButton, TopBar
-└── pages/                    Login, Register, Dashboard, RepoPage (PRs + AI review)
+├── App.jsx                   all routes (react-router-dom)
+├── index.css                 Tailwind + theme colours
+├── components/
+│   ├── UserLayout.jsx        top navbar + <Outlet /> for logged-in pages
+│   ├── Userpri.jsx           private route: no token cookie → /login
+│   └── GithubButton.jsx      sends the user to GitHub to log in / connect
+└── pages/
+    ├── GithubCallback.jsx    "/" : GitHub comes back here with ?code=, finishes login / connect
+    ├── Login.jsx             /login
+    ├── Register.jsx          /register
+    ├── Dashboard.jsx         /dashboard : profile + repos
+    └── RepoPage.jsx          /repo/:owner/:name : open PRs + AI review
 ```
+
+Frontend stack: React + Vite, Tailwind CSS, lucide-react icons, react-router-dom, axios, js-cookie.
+Every page calls the backend itself with `axios` (`import.meta.env.VITE_API_URL + "/..."`).
+The JWT is kept in a cookie called `token` (1 day) and sent as `Authorization: Bearer <token>`.
 
 A request always goes: **router → service → database / GitHub**.
 
@@ -65,7 +76,7 @@ A request always goes: **router → service → database / GitHub**.
 Register page ──POST /register──▶ save user (password hashed with argon2)
 Login page    ──POST /login─────▶ check password ──▶ return JWT token
                                                        │
-Frontend saves the token in localStorage ◀─────────────┘
+Frontend saves the token in a cookie ("token") ◀───────┘
 Every request after that sends:  Authorization: Bearer <token>
 ```
 
@@ -83,7 +94,7 @@ The token lasts 60 minutes. When it expires the frontend goes back to the login 
 3. GitHub sends the user back to  http://localhost:5174/?code=abc123
         │
         ▼
-4. App.jsx reads the code:
+4. GithubCallback.jsx (route "/") reads the code:
         ├── not logged in → POST /github/login   {code} → backend returns a JWT
         └── logged in     → POST /github/connect {code} → GitHub gets linked to this user
         │
@@ -242,9 +253,11 @@ npm install
 Create `Frontend/.env`:
 
 ```
-VITE_BACKEND_URL=http://localhost:8001
+VITE_API_URL=http://localhost:8001
 VITE_GITHUB_CLIENT_ID=<same Client ID as the backend>
 ```
+
+The frontend calls `VITE_API_URL` directly (no Vite proxy), so the backend CORS origin in `main.py` must be `http://localhost:5174`.
 
 Run:
 
@@ -267,6 +280,7 @@ If you change them, also change the CORS origin in `Backend/app/main.py` and the
 | `SSL connection has been closed unexpectedly` | Neon closes idle connections; `pool_pre_ping=True` in `db.py` handles it |
 | Backend still shows old routes after a change | the file watcher missed it → start with `WATCHFILES_FORCE_POLLING=true` (see Setup), or stop and start again |
 | Thrown back to the login page | the 60-minute token expired → log in again |
+| Every request fails with a CORS / network error | `VITE_API_URL` in `Frontend/.env` is wrong, the backend is not running, or the CORS origin in `main.py` is not `http://localhost:5174` |
 | GitHub button says "login failed" | the callback URL in the GitHub OAuth App must be `http://localhost:5174` |
 | GitHub says "redirect_uri is not associated" | the URL GitHub sends users back to must be registered in the OAuth App: `http://localhost:5174` (or `http://localhost:8001/github/callback`, which forwards to it) |
 | GitHub calls fail with 401 / "connect GitHub again" | the saved token expired or was revoked → Reconnect GitHub |

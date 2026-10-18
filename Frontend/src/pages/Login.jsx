@@ -1,64 +1,100 @@
-import { useState } from 'react'
-import { api } from '../api'
-import { GithubButton } from '../components'
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import Cookies from 'js-cookie';
+import GithubButton from '../components/GithubButton';
 
-export default function Login({ onLogin, notice }) {
-  const [form, setForm] = useState({ email: '', password: '' })
-  const [error, setError] = useState(notice || '')
-  const [loading, setLoading] = useState(false)
+const Login = () => {
+  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const update = (field) => (e) => setForm({ ...form, [field]: e.target.value })
-
-  const submit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setMessage("");
+    setLoading(true);
     try {
-      const { access_token } = await api.login(form.email, form.password)
-      await onLogin(access_token)
+      const response = await axios.post(
+        import.meta.env.VITE_API_URL + "/login",
+        { email, password },
+        { headers: { "Content-Type": "application/json" } }
+      );
+      Cookies.set("token", response.data.access_token, { expires: 1 });
+      navigate("/dashboard");
     } catch (err) {
-      setError(err.message)
+      setMessage(err.response?.data?.detail || "Login Failed! Please try again.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
-    <div className="auth-wrap">
-      <div className="auth-card card">
-        <div className="brand big">
-          <span className="brand-mark">◆</span> gitAudit
-        </div>
-        <p className="muted">Log in to your account.</p>
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 bg-[radial-gradient(ellipse_at_top,_#f4f6ec,_#fafaf9)] font-sans overflow-hidden py-10">
 
-        <form onSubmit={submit} className="form">
-          <label>
-            Email
-            <input type="email" value={form.email} onChange={update('email')} required autoComplete="email" />
-          </label>
-          <label>
-            Password
+      <div className="motion-safe:animate-[floatSlow_9s_ease-in-out_infinite] absolute top-[-10%] left-[-5%] w-96 h-96 bg-violet-200/40 blur-[100px] rounded-full" />
+      <div className="motion-safe:animate-[floatSlower_11s_ease-in-out_infinite] absolute bottom-[-10%] right-[-5%] w-96 h-96 bg-indigo-200/40 blur-[100px] rounded-full" />
+
+      <div className="motion-safe:animate-[fadeInUp_0.6s_ease-out_both] relative z-10 w-full max-w-[420px] p-10 bg-white/80 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-[0_30px_60px_-15px_rgba(147,51,234,0.1)] mx-4">
+
+        <div className="text-center mb-10">
+          <h1 className="text-3xl font-black tracking-tighter text-slate-900">
+            git<span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">Audit</span>
+          </h1>
+          <p className="text-slate-400 text-[11px] font-bold uppercase tracking-[0.2em] mt-2">Log in to your account</p>
+        </div>
+
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 mb-2">Email</label>
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 transition-all shadow-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 mb-2">Password</label>
             <input
               type="password"
-              value={form.password}
-              onChange={update('password')}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               required
-              autoComplete="current-password"
+              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 transition-all shadow-sm"
             />
-          </label>
-          {error && <div className="alert error">{error}</div>}
-          <button className="btn primary" disabled={loading}>
-            {loading ? 'Please wait…' : 'Log in'}
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-4 mt-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white font-bold rounded-2xl shadow-xl shadow-violet-200 transform transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? "Signing In..." : "Sign In"}
           </button>
         </form>
 
-        <div className="divider">or</div>
-        <GithubButton label="Continue with GitHub" />
+        <div className="flex items-center gap-3 my-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+          <span className="flex-1 border-t border-slate-200" /> or <span className="flex-1 border-t border-slate-200" />
+        </div>
+        <GithubButton label="Continue with GitHub" className="w-full" />
 
-        <p className="muted switch">
-          New here? <a href="#/register">Create an account</a>
+        <p className="text-center text-sm text-slate-500 mt-6">
+          Don't have an account?
+          <button onClick={() => navigate('/register')} className="text-violet-600 hover:underline ml-1 font-semibold">Register</button>
         </p>
+
+        {message && (
+          <p className="text-center text-xs mt-4 font-bold text-red-600">{message}</p>
+        )}
       </div>
     </div>
-  )
-}
+  );
+};
+
+export default Login;
