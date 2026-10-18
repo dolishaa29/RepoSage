@@ -92,7 +92,10 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int):
 
 
 def get_reviews(db: Session, user: User, repo: str):
-    return db.query(Review).filter(Review.user_id == user.id, Review.repo == repo).order_by(Review.id.desc()).all()
+    reviews = db.query(Review)
+    reviews = reviews.filter(Review.user_id == user.id)
+    reviews = reviews.filter(Review.repo == repo)
+    return reviews.order_by(Review.id.desc()).all()
 
 
 def make_diff(files):
