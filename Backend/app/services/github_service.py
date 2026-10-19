@@ -46,7 +46,7 @@ def connect(db: Session, user: User, code: str):
 def get_repos(user: User):
     if user.github_token is None:
         raise HTTPException(status_code=400, detail="Connect GitHub first")
-    return call_github(user.github_token, "/user/repos?sort=updated")  # newest first (GitHub sends 30)
+    return call_github(user.github_token, "/user/repos?sort=updated")  
 
 
 def get_pulls(user: User, repo: str):
