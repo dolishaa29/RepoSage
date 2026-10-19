@@ -88,13 +88,11 @@ def get_token(user: User):
 
 
 
-
 def get_pr(token: str, repo: str, pr_number: int):
     pr = call_github(token, f"/repos/{repo}/pulls/{pr_number}")
     if pr["head"]["repo"] is None or pr["head"]["repo"]["full_name"] != repo:
         raise HTTPException(status_code=400, detail="Fixes work only for pull requests from a branch of this repo, not from a fork")
     return pr
-
 
 
 

@@ -253,6 +253,57 @@ All endpoints except register, login and GitHub login require `Authorization: Be
 }
 ```
 
+## GitHub API integration
+
+All GitHub access goes through the official [GitHub REST API](https://docs.github.com/en/rest) with the user's OAuth token
+(`Authorization: Bearer <token>`). The calls live in `github_service.py` and `fix_service.py`.
+
+### Authentication (OAuth App)
+
+| Step | Call | Docs |
+|---|---|---|
+| Send the user to GitHub | `GET https://github.com/login/oauth/authorize?client_id=…&scope=repo user:email&state=…` | [Authorizing OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps) |
+| Exchange `code` for a token | `POST https://github.com/login/oauth/access_token` | same page |
+| Permissions requested | `repo`, `user:email` | [Scopes for OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps) |
+
+### Reading data
+
+| Used for | Endpoint | Docs |
+|---|---|---|
+| Current GitHub user | `GET /user` | [Get the authenticated user](https://docs.github.com/en/rest/users/users#get-the-authenticated-user) |
+| Primary email | `GET /user/emails` | [Emails](https://docs.github.com/en/rest/users/emails) |
+| Repository list | `GET /user/repos?sort=updated` | [List repositories for the authenticated user](https://docs.github.com/en/rest/repos/repos#list-repositories-for-the-authenticated-user) |
+| Open pull requests | `GET /repos/{owner}/{repo}/pulls` | [Pull requests](https://docs.github.com/en/rest/pulls/pulls) |
+| One pull request | `GET /repos/{owner}/{repo}/pulls/{number}` | [Pull requests](https://docs.github.com/en/rest/pulls/pulls) |
+| Changed files + patches | `GET /repos/{owner}/{repo}/pulls/{number}/files` | [Pull requests](https://docs.github.com/en/rest/pulls/pulls) |
+| A file's content and `sha` | `GET /repos/{owner}/{repo}/contents/{path}?ref={branch}` | [Repository contents](https://docs.github.com/en/rest/repos/contents) |
+
+### Writing a fix
+
+| Step | Endpoint | Docs |
+|---|---|---|
+| 1. Create a branch from the PR's head commit | `POST /repos/{owner}/{repo}/git/refs` | [Git references](https://docs.github.com/en/rest/git/refs) |
+| 2. Commit the fixed file to that branch | `PUT /repos/{owner}/{repo}/contents/{path}` | [Repository contents](https://docs.github.com/en/rest/repos/contents) |
+| 3. Open a pull request into the PR's branch | `POST /repos/{owner}/{repo}/pulls` | [Pull requests](https://docs.github.com/en/rest/pulls/pulls) |
+
+### Things worth knowing
+
+- **Why the file `sha` is sent on update.** GitHub uses it to check that you are changing the latest version of the file. If someone changed the file in between, the request fails instead of silently overwriting their work.
+- **Why base64.** The Contents API sends and receives file content as base64, so the code decodes it when reading and encodes it when writing.
+- **A branch is a reference.** Creating a branch means creating `refs/heads/<name>` that points at a commit `sha`.
+- **Pagination.** List endpoints return 30 items by default ([pagination](https://docs.github.com/en/rest/using-the-rest-api/using-pagination-in-the-rest-api)).
+- **Rate limits.** Authenticated requests are limited per hour ([rate limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api)).
+
+### Other references
+
+| Topic | Docs |
+|---|---|
+| HTTP client used by the backend | [httpx](https://www.python-httpx.org) |
+| Typed AI output (`with_structured_output`) | [LangChain structured output](https://python.langchain.com/docs/how_to/structured_output/) |
+| API framework | [FastAPI](https://fastapi.tiangolo.com) |
+
+Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_PREP.md).
+
 ## Data model
 
 **users**: `id`, `name`, `email` (unique), `hashed_password` (empty for GitHub-only accounts), `github_id`, `github_username`, `github_token`

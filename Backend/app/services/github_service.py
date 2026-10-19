@@ -1,14 +1,13 @@
 import os
-
 import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-
 from ..core.auth import create_token
 from ..models.user import User
 
 CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+
 
 
 def login(db: Session, code: str):
