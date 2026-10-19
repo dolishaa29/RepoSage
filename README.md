@@ -39,11 +39,13 @@ Backend/
     ├── services/             the real logic
     │   ├── auth_service.py   register, login
     │   ├── github_service.py GitHub login, connect, repos, pull requests
-    │   └── review_service.py AI review of a pull request
+    │   ├── review_service.py AI review of a pull request
+    │   └── fix_service.py    AI fix of one finding + branch / commit / PR on GitHub
     └── routers/              URLs → call a service
         ├── auth.py           /register  /login  /me
         ├── github.py         /github/...
-        └── review.py         /reviews
+        ├── review.py         /reviews
+        └── fix.py            /fixes
 
 Frontend/src/
 ├── App.jsx                   all routes (react-router-dom)
@@ -57,7 +59,7 @@ Frontend/src/
     ├── Login.jsx             /login
     ├── Register.jsx          /register
     ├── Dashboard.jsx         /dashboard : profile + repos
-    └── RepoPage.jsx          /repo/:owner/:name : open PRs + AI review
+    └── RepoPage.jsx          /repo/:owner/:name : open PRs + AI review + Fix with AI
 ```
 
 Frontend stack: React + Vite, Tailwind CSS, lucide-react icons, react-router-dom, axios, js-cookie.
@@ -133,6 +135,34 @@ RepoPage shows: summary + each finding (severity, file:line, why, how to fix)
 - Binary files (images etc.) are skipped.
 - GitHub returns the first 30 changed files of a PR.
 
+### 4. Fix with AI → pull request
+
+```
+A finding → "Fix with AI"
+        │
+        ▼
+POST /fixes {repo, pr_number, finding}
+  1. GitHub: the whole file from the PR's branch
+  2. Gemini: "fix only this one problem, return the complete file"
+        │
+        ▼
+Screen: old code | new code
+        │
+        ├── Reject  → nothing happens
+        └── Approve → POST /fixes/apply {repo, pr_number, file, new_code, title}
+                        1. new branch  gitaudit/fix-pr<number>-<time>  from the PR's branch
+                        2. commit the fixed file on it
+                        3. open a PR  new branch → the PR's branch
+        │
+        ▼
+Screen: link to the new fix PR
+```
+
+- Nothing is merged automatically. A person reads the fix PR on GitHub and merges or closes it.
+- Nothing is saved in the database for fixes (yet).
+- Works only for PRs from a branch of the same repo, not from a fork.
+- Needs the GitHub token's `repo` scope (the GitHub button already asks for it).
+
 ---
 
 ## API
@@ -149,6 +179,8 @@ RepoPage shows: summary + each finding (severity, file:line, why, how to fix)
 | GET | `/github/repos/{owner}/{name}/pulls` | yes | open pull requests of a repo |
 | POST | `/reviews` | yes | `{repo, pr_number}` → AI reviews the PR, saves and returns the result |
 | GET | `/reviews?repo=owner/name` | yes | saved reviews of a repo, newest first |
+| POST | `/fixes` | yes | `{repo, pr_number, finding}` → AI fix: `{file, old_code, new_code, explanation}` |
+| POST | `/fixes/apply` | yes | `{repo, pr_number, file, new_code, title}` → new branch + commit + PR, returns `{pr_url}` |
 
 Interactive docs: http://localhost:8001/docs
 
@@ -277,6 +309,7 @@ If you change them, also change the CORS origin in `Backend/app/main.py` and the
 | Problem | Cause / fix |
 |---|---|
 | `500` with `column ... does not exist` | the table in Neon is older than the model → add the column with `ALTER TABLE` |
+| Backend takes minutes to start, every DB call hangs | the computer's IPv6 doesn't work, so each Neon IPv6 address times out first; `connect_timeout: 3` in `db.py` moves on to IPv4 quickly |
 | `SSL connection has been closed unexpectedly` | Neon closes idle connections; `pool_pre_ping=True` in `db.py` handles it |
 | Backend still shows old routes after a change | the file watcher missed it → start with `WATCHFILES_FORCE_POLLING=true` (see Setup), or stop and start again |
 | Thrown back to the login page | the 60-minute token expired → log in again |
@@ -304,7 +337,8 @@ If you change them, also change the CORS origin in `Backend/app/main.py` and the
       `NOT_AVAILABLE`). Bedrock models that worked in a test with our `ReviewResult` format:
       `qwen.qwen3-coder-next`, `deepseek.v3.2`, `mistral.devstral-2-123b`, `moonshotai.kimi-k2.5`, `zai.glm-5`
 - [ ] Alembic migrations (instead of manual `ALTER TABLE`)
-- [ ] AI writes a fix + unit tests, human approves / rejects, then a new branch + PR on GitHub
+- [x] AI writes a fix, human approves / rejects, then a new branch + PR on GitHub (simple version)
+- [ ] Fix: also write unit tests, retry when they fail, save fixes in a `fixes` table
 - [ ] LangGraph: split into 3 agents (structure, security, fix + tests)
 - [ ] Webhook: review automatically when a PR is opened
 - [ ] pgvector memory of past fixes

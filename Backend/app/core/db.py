@@ -16,7 +16,8 @@ DATABASE_URL = DATABASE_URL.replace(
 
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True
+    pool_pre_ping=True,
+    connect_args={"connect_timeout": 3}
 )
 
 SessionLocal = sessionmaker(

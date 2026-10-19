@@ -89,3 +89,10 @@ def call_github(token: str, path: str):
     if res.status_code != 200:
         raise HTTPException(status_code=400, detail="GitHub request failed, connect GitHub again")
     return res.json()
+
+
+def send_github(token: str, method: str, path: str, body: dict):
+    res = httpx.request(method, "https://api.github.com" + path, json=body, headers={"Authorization": f"Bearer {token}"})
+    if res.status_code not in (200, 201):
+        raise HTTPException(status_code=400, detail=f"GitHub request failed: {res.json().get('message')}")
+    return res.json()

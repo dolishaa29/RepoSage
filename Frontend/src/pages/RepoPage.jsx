@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import { AlertCircle, ArrowLeft, CheckCircle2, ExternalLink, GitPullRequest, Sparkles } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, ExternalLink, GitPullRequest, Sparkles, Wrench } from 'lucide-react';
 
 const SEVERITY = {
   high: { card: 'border-l-red-500', badge: 'bg-red-50 text-red-600' },
@@ -136,7 +136,7 @@ const RepoPage = () => {
                     {reviewing === pr.number ? "Reviewing… (can take a minute)" : review ? "Review again" : "Review with AI"}
                   </button>
                 </div>
-                {review && <ReviewResult review={review} />}
+                {review && <ReviewResult review={review} repo={repo} />}
               </div>
             );
           })}
@@ -146,7 +146,7 @@ const RepoPage = () => {
   );
 };
 
-const ReviewResult = ({ review }) => (
+const ReviewResult = ({ review, repo }) => (
   <div className="mt-6 pt-6 border-t border-slate-100">
     {review.ai && (
       <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-2">Reviewed by {review.ai}</p>
@@ -176,9 +176,115 @@ const ReviewResult = ({ review }) => (
           <p className="text-sm text-slate-600 mt-1.5">
             <span className="font-bold text-slate-800">Fix:</span> {f.suggestion}
           </p>
+          <FixBox repo={repo} prNumber={review.pr_number} finding={f} />
         </div>
       ))}
     </div>
+  </div>
+);
+
+const FixBox = ({ repo, prNumber, finding }) => {
+  const [fix, setFix] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [prUrl, setPrUrl] = useState("");
+  const [message, setMessage] = useState("");
+
+  const headers = { Authorization: `Bearer ${Cookies.get("token")}` };
+
+  const makeFix = async () => {
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        import.meta.env.VITE_API_URL + "/fixes",
+        { repo, pr_number: prNumber, finding },
+        { headers }
+      );
+      setFix(response.data);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || "AI fix failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const approve = async () => {
+    setMessage("");
+    setLoading(true);
+    try {
+      const response = await axios.post(
+        import.meta.env.VITE_API_URL + "/fixes/apply",
+        { repo, pr_number: prNumber, file: fix.file, new_code: fix.new_code, title: finding.title },
+        { headers }
+      );
+      setPrUrl(response.data.pr_url);
+    } catch (err) {
+      setMessage(err.response?.data?.detail || "Could not create the pull request. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (prUrl) {
+    return (
+      <a
+        href={prUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:underline"
+      >
+        <CheckCircle2 size={16} /> Fix pull request created. Open it <ExternalLink size={13} />
+      </a>
+    );
+  }
+
+  return (
+    <div className="mt-4">
+      {!fix && (
+        <button
+          onClick={makeFix}
+          disabled={loading}
+          className="flex items-center gap-2 py-2 px-4 bg-white border border-slate-200 hover:border-indigo-300 text-indigo-600 text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+        >
+          <Wrench size={13} /> {loading ? "Writing fix… (can take a minute)" : "Fix with AI"}
+        </button>
+      )}
+
+      {fix && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-4">
+          <p className="text-sm text-slate-600 mb-3">{fix.explanation}</p>
+          <div className="grid md:grid-cols-2 gap-3">
+            <CodeBlock label="Old code" code={fix.old_code} />
+            <CodeBlock label="New code" code={fix.new_code} />
+          </div>
+          <div className="flex flex-wrap gap-2 mt-4">
+            <button
+              onClick={approve}
+              disabled={loading}
+              className="py-2.5 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+            >
+              {loading ? "Creating pull request..." : "Approve & create PR"}
+            </button>
+            <button
+              onClick={() => setFix(null)}
+              disabled={loading}
+              className="py-2.5 px-5 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      )}
+
+      {message && <p className="text-xs mt-3 font-bold text-red-600">{message}</p>}
+    </div>
+  );
+};
+
+const CodeBlock = ({ label, code }) => (
+  <div className="min-w-0">
+    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">{label}</p>
+    <pre className="max-h-80 overflow-auto bg-slate-900 text-slate-100 text-xs rounded-xl p-3 font-mono">{code}</pre>
   </div>
 );
 
