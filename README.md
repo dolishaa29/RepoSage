@@ -1,228 +1,144 @@
-# RepoSage
+<div align="center">
 
-A web app where you log in, connect your GitHub account, pick a pull request, and let AI (Google Gemini)
-review the changed code for bugs and security problems.
+# gitAudit
 
-**Status:** login, register, GitHub login/connect, repo list, PR list and AI review of a PR work.
+**AI code review for GitHub pull requests: find the bugs, fix them, open the PR.**
 
----
+![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-Gemini-1C3C3C?logo=langchain&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 
-## Tech stack
-
-| Part | Tech |
-|---|---|
-| Backend | Python, FastAPI, SQLAlchemy |
-| Database | PostgreSQL on Neon (cloud) |
-| Login | JWT tokens (python-jose), passwords hashed with argon2 |
-| GitHub | GitHub OAuth App, `httpx` to call the GitHub API |
-| AI | LangChain + `langchain-google-genai` → Google Gemini |
-| Frontend | React + Vite |
+</div>
 
 ---
 
-## Folder structure
+## Overview
 
-```
-Backend/
-├── .env                      secrets (never commit)
-├── requirements.txt
-└── app/
-    ├── main.py               creates the app, CORS, tables, routers
-    ├── core/
-    │   ├── db.py             database connection, get_db
-    │   ├── auth.py           create_token, auth (checks the JWT on protected routes)
-    │   └── llm.py            the AI model: init_chat_model("google_genai:gemini-flash-latest")
-    ├── models/
-    │   ├── user.py           users table
-    │   └── review.py         reviews table
-    ├── schemas/              request bodies the frontend SENDS (…Dto) + responses the backend RETURNS
-    ├── services/             the real logic
-    │   ├── auth_service.py   register, login
-    │   ├── github_service.py GitHub login, connect, repos, pull requests
-    │   ├── review_service.py AI review of a pull request
-    │   └── fix_service.py    AI fix of one finding + branch / commit / PR on GitHub
-    └── routers/              URLs → call a service
-        ├── auth.py           /register  /login  /me
-        ├── github.py         /github/...
-        ├── review.py         /reviews
-        └── fix.py            /fixes
+gitAudit connects to your GitHub account and reviews the code in your pull requests with AI (Google Gemini).
+It reports bugs, security problems and bad practices, each with a severity, the exact file and line, an explanation and a suggested fix.
+For any finding you can ask the AI to write the fix. Once you approve it, gitAudit opens a new pull request with the change.
 
-Frontend/src/
-├── App.jsx                   all routes (react-router-dom)
-├── index.css                 Tailwind + theme colours
-├── components/
-│   ├── UserLayout.jsx        top navbar + <Outlet /> for logged-in pages
-│   ├── Userpri.jsx           private route: no token cookie → /login
-│   └── GithubButton.jsx      sends the user to GitHub to log in / connect
-└── pages/
-    ├── GithubCallback.jsx    "/" : GitHub comes back here with ?code=, finishes login / connect
-    ├── Login.jsx             /login
-    ├── Register.jsx          /register
-    ├── Dashboard.jsx         /dashboard : profile + repos
-    └── RepoPage.jsx          /repo/:owner/:name : open PRs + AI review + Fix with AI
-```
+**Nothing is merged automatically.** A person always reviews the fix PR on GitHub before it is merged.
 
-Frontend stack: React + Vite, Tailwind CSS, lucide-react icons, react-router-dom, axios, js-cookie.
-Every page calls the backend itself with `axios` (`import.meta.env.VITE_API_URL + "/..."`).
-The JWT is kept in a cookie called `token` (1 day) and sent as `Authorization: Bearer <token>`.
+## Features
 
-A request always goes: **router → service → database / GitHub**.
-
----
+| | Feature | Description |
+|---|---|---|
+| 🔐 | **Accounts** | Sign up with email and password, or with GitHub. JWT-based sessions. |
+| 🐙 | **GitHub integration** | Connect your GitHub account through OAuth. Works with public and private repositories. |
+| 🔍 | **AI pull request review** | Reviews the diff of a PR and returns a summary plus structured findings: severity (high / medium / low), category (bug / security / bad practice), file, line, explanation and fix. |
+| 🛠️ | **Fix with AI** | Generates a fix for a single finding and shows the old and new code side by side. |
+| ✅ | **Human approval** | On approval it creates a branch, commits the fix and opens a pull request into the original PR's branch. |
+| 🗂️ | **Review history** | Every review is saved, so earlier results are still there when you come back to a repository. |
 
 ## How it works
 
-### 1. Email + password
-
-```
-Register page ──POST /register──▶ save user (password hashed with argon2)
-Login page    ──POST /login─────▶ check password ──▶ return JWT token
-                                                       │
-Frontend saves the token in a cookie ("token") ◀───────┘
-Every request after that sends:  Authorization: Bearer <token>
-```
-
-The token lasts 60 minutes. When it expires the frontend goes back to the login page.
-
-### 2. GitHub (one button does both "login" and "connect")
-
-```
-1. User clicks the GitHub button
-        │
-        ▼
-2. GitHub page: "Authorize reposage?" → user clicks Allow
-        │
-        ▼
-3. GitHub sends the user back to  http://localhost:5174/?code=abc123
-        │
-        ▼
-4. GithubCallback.jsx (route "/") reads the code:
-        ├── not logged in → POST /github/login   {code} → backend returns a JWT
-        └── logged in     → POST /github/connect {code} → GitHub gets linked to this user
-        │
-        ▼
-5. Backend: code → GitHub access token → GitHub user info → save in users table
+```mermaid
+flowchart LR
+    A[Sign in] --> B[Connect GitHub]
+    B --> C[Pick a repository]
+    C --> D[Pick an open PR]
+    D --> E[Review with AI]
+    E --> F[Findings]
+    F --> G[Fix with AI]
+    G --> H{Approve?}
+    H -- Yes --> I[New branch + commit + PR]
+    H -- No --> F
 ```
 
-- **Client ID + Client Secret** identify the *app*. There is one pair for the whole app.
-- **GitHub access token** belongs to *one user*. Each user gets their own, and it only sees their own repos.
-- The token is saved in the `users` table and is never sent to the frontend.
-  ⚠️ For now it is saved as plain text. **Encrypt it before production** (see Next steps).
-- **Reconnect GitHub** (dashboard, when already connected) runs the same flow again and saves a fresh token.
-  Use it when GitHub calls start failing. To switch to a different GitHub account, log out of github.com first.
+### AI review
 
-### 3. AI review of a pull request
+1. The backend fetches the pull request and its changed files from the GitHub API.
+2. The patches are joined into one diff (binary files are skipped).
+3. A LangChain chain sends the diff to Gemini with **structured output**, so the model must return a `ReviewResult` object (`summary` + `findings[]`) instead of free text.
+4. The result is saved in PostgreSQL and returned to the frontend.
 
-```
-Dashboard → click a repo → RepoPage shows its open pull requests
-        │
-        ▼  "Review with AI"
-POST /reviews {repo, pr_number}
-        │
-        ▼
-Backend:
-  1. GitHub: PR title + changed files (the diff)
-  2. Gemini: "find bugs and security problems in this diff"
-     → answer comes back as a ReviewResult object (summary + findings), not free text
-  3. save it in the reviews table
-        │
-        ▼
-RepoPage shows: summary + each finding (severity, file:line, why, how to fix)
+```python
+chain = prompt | model.with_structured_output(ReviewResult)
 ```
 
-- The AI part is a LangChain chain: `chain = prompt | model.with_structured_output(ReviewResult)`.
-  The model must answer in the `ReviewResult` shape (summary + findings), so we get an object back, not free text.
-- Binary files (images etc.) are skipped.
-- GitHub returns the first 30 changed files of a PR.
+### Fix with AI
 
-### 4. Fix with AI → pull request
+1. The backend fetches the full file from the PR's branch.
+2. Gemini is asked to fix **only** the selected problem and return the complete file.
+3. The user compares the old and new code, then approves or rejects.
+4. On approval: a branch `gitaudit/fix-pr<number>-<timestamp>` is created from the PR's branch, the fixed file is committed, and a pull request is opened into the PR's branch.
 
-```
-A finding → "Fix with AI"
-        │
-        ▼
-POST /fixes {repo, pr_number, finding}
-  1. GitHub: the whole file from the PR's branch
-  2. Gemini: "fix only this one problem, return the complete file"
-        │
-        ▼
-Screen: old code | new code
-        │
-        ├── Reject  → nothing happens
-        └── Approve → POST /fixes/apply {repo, pr_number, file, new_code, title}
-                        1. new branch  gitaudit/fix-pr<number>-<time>  from the PR's branch
-                        2. commit the fixed file on it
-                        3. open a PR  new branch → the PR's branch
-        │
-        ▼
-Screen: link to the new fix PR
+## Architecture
+
+```mermaid
+flowchart LR
+    UI["React + Vite<br/>(localhost:5174)"] -- "REST + JWT" --> API["FastAPI<br/>(localhost:8001)"]
+    API --> DB[("PostgreSQL<br/>Neon")]
+    API --> GH["GitHub REST API"]
+    API --> LLM["Google Gemini<br/>via LangChain"]
 ```
 
-- Nothing is merged automatically. A person reads the fix PR on GitHub and merges or closes it.
-- Nothing is saved in the database for fixes (yet).
-- Works only for PRs from a branch of the same repo, not from a fork.
-- Needs the GitHub token's `repo` scope (the GitHub button already asks for it).
+Every backend request follows the same layers: **router → service → database / GitHub / AI**.
 
----
+## Tech stack
 
-## API
-
-| Method | URL | Login needed | What it does |
-|---|---|---|---|
-| POST | `/register` | no | create account `{name, email, password}` |
-| POST | `/login` | no | returns `{access_token}` |
-| GET | `/me` | yes | the logged-in user |
-| POST | `/github/login` | no | `{code}` → log in / sign up with GitHub, returns `{access_token}` |
-| GET | `/github/callback` | no | only forwards GitHub's `?code=` to the frontend, for an OAuth App whose callback is `localhost:8001/github/callback` |
-| POST | `/github/connect` | yes | `{code}` → link GitHub to the logged-in user |
-| GET | `/github/repos` | yes | the user's GitHub repos (30 most recently updated) |
-| GET | `/github/repos/{owner}/{name}/pulls` | yes | open pull requests of a repo |
-| POST | `/reviews` | yes | `{repo, pr_number}` → AI reviews the PR, saves and returns the result |
-| GET | `/reviews?repo=owner/name` | yes | saved reviews of a repo, newest first |
-| POST | `/fixes` | yes | `{repo, pr_number, finding}` → AI fix: `{file, old_code, new_code, explanation}` |
-| POST | `/fixes/apply` | yes | `{repo, pr_number, file, new_code, title}` → new branch + commit + PR, returns `{pr_url}` |
-
-Interactive docs: http://localhost:8001/docs
-
----
-
-## Database
-
-**users**
-
-| Column | Notes |
+| Layer | Technology |
 |---|---|
-| id | primary key |
-| name | |
-| email | unique |
-| hashed_password | empty for users who signed up with GitHub |
-| github_id | GitHub's user id, unique |
-| github_username | e.g. `dolishaa29` |
-| github_token | GitHub access token (plain text for now, encrypt before production) |
+| Backend | Python, FastAPI, SQLAlchemy, Pydantic |
+| Database | PostgreSQL (Neon) |
+| Auth | JWT (`python-jose`), password hashing with Argon2 |
+| GitHub | GitHub OAuth App, `httpx` |
+| AI | LangChain, `langchain-google-genai`, Google Gemini (`gemini-flash-latest`) |
+| Frontend | React 19, Vite, Tailwind CSS 4, React Router, Axios, lucide-react |
 
-**reviews**
+## Project structure
 
-| Column | Notes |
-|---|---|
-| id | primary key |
-| user_id | who asked for the review |
-| repo | `owner/name` |
-| pr_number, pr_title | which pull request |
-| ai | which AI did the review (`gemini`) |
-| summary | AI's short summary |
-| findings | JSON list: file, line, severity (high/medium/low), category, title, explanation, suggestion |
-| created_at | |
+```
+gitAudit/
+├── Backend/
+│   ├── requirements.txt
+│   └── app/
+│       ├── main.py                 App, CORS, table creation, routers
+│       ├── core/
+│       │   ├── db.py               Database engine and session
+│       │   ├── auth.py             JWT creation and the auth dependency
+│       │   └── llm.py              Gemini model (LangChain)
+│       ├── models/                 SQLAlchemy tables: users, reviews
+│       ├── schemas/                Request bodies (…Dto) and responses
+│       ├── services/
+│       │   ├── auth_service.py     Register, login
+│       │   ├── github_service.py   GitHub OAuth, repos, PRs, API helpers
+│       │   ├── review_service.py   AI review of a pull request
+│       │   └── fix_service.py      AI fix + branch / commit / PR
+│       └── routers/                auth, github, review, fix
+│
+└── Frontend/
+    └── src/
+        ├── App.jsx                 Routes
+        ├── components/
+        │   ├── UserLayout.jsx      Navbar + page outlet
+        │   ├── Userpri.jsx         Private route guard
+        │   └── GithubButton.jsx    GitHub OAuth redirect
+        └── pages/
+            ├── GithubCallback.jsx  Finishes GitHub login / connect
+            ├── Login.jsx
+            ├── Register.jsx
+            ├── Dashboard.jsx       Profile and repositories
+            └── RepoPage.jsx        Pull requests, reviews and fixes
+```
 
-Tables are created automatically when the backend starts (`Base.metadata.create_all`).
-It does **not** add new columns to an existing table. A new column must be added by hand (`ALTER TABLE`).
+## Getting started
 
----
+### Prerequisites
 
-## Setup
+- Python 3.12+
+- Node.js 20+
+- A PostgreSQL database (for example a free [Neon](https://neon.tech) project)
+- A GitHub OAuth App
+- A Google Gemini API key from [Google AI Studio](https://aistudio.google.com)
 
-### 1. GitHub OAuth App (one time)
+### 1. Create a GitHub OAuth App
 
-GitHub → Settings → Developer settings → OAuth Apps → New OAuth App
+GitHub → **Settings → Developer settings → OAuth Apps → New OAuth App**
 
 | Field | Value |
 |---|---|
@@ -230,50 +146,41 @@ GitHub → Settings → Developer settings → OAuth Apps → New OAuth App
 | Authorization callback URL | `http://localhost:5174` |
 | Expire user access tokens | unticked |
 
-Copy the **Client ID**, then click **Generate a new client secret** and copy it.
+Copy the **Client ID**, then generate and copy a **Client secret**.
 
 ### 2. Backend
 
 ```bash
 cd Backend
 python -m venv venv
-venv\Scripts\activate          # Windows
+venv\Scripts\activate            # Windows
+# source venv/bin/activate       # macOS / Linux
 pip install -r requirements.txt
 ```
 
 Create `Backend/.env`:
 
-```
+```env
 DATABASE_URL=postgresql://user:password@host/dbname?sslmode=require
 JWT=<long random string>
-GITHUB_CLIENT_ID=<from step 1>
-GITHUB_CLIENT_SECRET=<from step 1>
-
-# Google Gemini (key from aistudio.google.com)
-GOOGLE_API_KEY=<Gemini API key>
+GITHUB_CLIENT_ID=<client id>
+GITHUB_CLIENT_SECRET=<client secret>
+GOOGLE_API_KEY=<gemini api key>
 ```
 
-**Gemini setup (one time):** aistudio.google.com → **Get API key** → create key → `GOOGLE_API_KEY`.
-The model name is set in `core/llm.py` (`gemini-flash-latest`; Pro models are quota-limited on the free tier).
-
-Make the random values with:
+Generate a JWT secret with:
 
 ```bash
-python -c "import secrets; print(secrets.token_hex(32))"                                  # JWT
+python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Run:
+Start the API:
 
 ```bash
-uvicorn app.main:app --reload --reload-include .env --port 8001
+uvicorn app.main:app --reload --port 8001
 ```
 
-If code changes are not picked up (happens on some Windows drives), use polling:
-
-```bash
-WATCHFILES_FORCE_POLLING=true uvicorn app.main:app --reload --reload-include .env --port 8001   # Git Bash
-$env:WATCHFILES_FORCE_POLLING="true"; uvicorn app.main:app --reload --reload-include .env --port 8001   # PowerShell
-```
+Tables are created automatically on startup. Interactive API docs are at **http://localhost:8001/docs**.
 
 ### 3. Frontend
 
@@ -284,62 +191,105 @@ npm install
 
 Create `Frontend/.env`:
 
-```
+```env
 VITE_API_URL=http://localhost:8001
-VITE_GITHUB_CLIENT_ID=<same Client ID as the backend>
+VITE_GITHUB_CLIENT_ID=<same client id as the backend>
 ```
 
-The frontend calls `VITE_API_URL` directly (no Vite proxy), so the backend CORS origin in `main.py` must be `http://localhost:5174`.
-
-Run:
+Start the app:
 
 ```bash
 npm run dev -- --port 5174
 ```
 
-Open http://localhost:5174
+Open **http://localhost:5174**.
 
-Ports 8001 / 5174 are used because 8000 / 5173 are often busy with another project.
-If you change them, also change the CORS origin in `Backend/app/main.py` and the URLs in the GitHub OAuth App.
+> The frontend calls the API directly, so the CORS origin in `Backend/app/main.py` must match the frontend URL.
+> If you change a port, also update the URLs in the GitHub OAuth App.
 
----
+## Environment variables
+
+| Variable | Where | Description |
+|---|---|---|
+| `DATABASE_URL` | Backend | PostgreSQL connection string |
+| `JWT` | Backend | Secret used to sign login tokens |
+| `GITHUB_CLIENT_ID` | Backend | GitHub OAuth App client ID |
+| `GITHUB_CLIENT_SECRET` | Backend | GitHub OAuth App client secret |
+| `GOOGLE_API_KEY` | Backend | Google Gemini API key |
+| `FRONTEND_URL` | Backend (optional) | Where `/github/callback` forwards to (default `http://localhost:5174`) |
+| `VITE_API_URL` | Frontend | Backend base URL |
+| `VITE_GITHUB_CLIENT_ID` | Frontend | GitHub OAuth App client ID |
+
+## API reference
+
+All endpoints except register, login and GitHub login require `Authorization: Bearer <token>`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/register` | Create an account `{name, email, password}` |
+| `POST` | `/login` | Log in, returns `{access_token}` |
+| `GET` | `/me` | Current user |
+| `POST` | `/github/login` | Log in or sign up with a GitHub OAuth `code` |
+| `POST` | `/github/connect` | Link GitHub to the current user |
+| `GET` | `/github/callback` | Forwards GitHub's `?code=` to the frontend |
+| `GET` | `/github/repos` | The user's repositories (30 most recently updated) |
+| `GET` | `/github/repos/{owner}/{name}/pulls` | Open pull requests of a repository |
+| `POST` | `/reviews` | Review a PR with AI `{repo, pr_number}` |
+| `GET` | `/reviews?repo=owner/name` | Saved reviews of a repository, newest first |
+| `POST` | `/fixes` | Generate a fix for one finding `{repo, pr_number, finding}` |
+| `POST` | `/fixes/apply` | Create branch, commit and PR `{repo, pr_number, file, new_code, title}` |
+
+### Example finding
+
+```json
+{
+  "file": "Backend/order_utils.py",
+  "line": 11,
+  "severity": "high",
+  "category": "security",
+  "title": "SQL injection",
+  "explanation": "User input is concatenated directly into the SQL query.",
+  "suggestion": "Use a parameterized query."
+}
+```
+
+## Data model
+
+**users**: `id`, `name`, `email` (unique), `hashed_password` (empty for GitHub-only accounts), `github_id`, `github_username`, `github_token`
+
+**reviews**: `id`, `user_id`, `repo`, `pr_number`, `pr_title`, `ai`, `summary`, `findings` (JSON), `created_at`
+
+> `create_all` only creates missing tables. It does not add new columns to existing tables, so schema changes need an `ALTER TABLE` until migrations are added.
+
+## Security notes
+
+- Passwords are hashed with Argon2. Raw passwords are never stored.
+- The user's GitHub access token stays on the server and is never sent to the browser.
+- The OAuth `state` parameter is checked to protect the GitHub login from CSRF.
+- AI fixes never touch the default branch and are never merged automatically.
+- ⚠️ **Before production:** encrypt GitHub tokens at rest, and use strong, freshly rotated secrets for `JWT`, the GitHub client secret, the Gemini key and the database password.
 
 ## Troubleshooting
 
-| Problem | Cause / fix |
+| Problem | Solution |
 |---|---|
-| `500` with `column ... does not exist` | the table in Neon is older than the model → add the column with `ALTER TABLE` |
-| Backend takes minutes to start, every DB call hangs | the computer's IPv6 doesn't work, so each Neon IPv6 address times out first; `connect_timeout: 3` in `db.py` moves on to IPv4 quickly |
-| `SSL connection has been closed unexpectedly` | Neon closes idle connections; `pool_pre_ping=True` in `db.py` handles it |
-| Backend still shows old routes after a change | the file watcher missed it → start with `WATCHFILES_FORCE_POLLING=true` (see Setup), or stop and start again |
-| Thrown back to the login page | the 60-minute token expired → log in again |
-| Every request fails with a CORS / network error | `VITE_API_URL` in `Frontend/.env` is wrong, the backend is not running, or the CORS origin in `main.py` is not `http://localhost:5174` |
-| GitHub button says "login failed" | the callback URL in the GitHub OAuth App must be `http://localhost:5174` |
-| GitHub says "redirect_uri is not associated" | the URL GitHub sends users back to must be registered in the OAuth App: `http://localhost:5174` (or `http://localhost:8001/github/callback`, which forwards to it) |
-| GitHub calls fail with 401 / "connect GitHub again" | the saved token expired or was revoked → Reconnect GitHub |
-| Repos stop loading after some hours | "Expire user access tokens" is ticked in the GitHub OAuth App → untick it, then Reconnect GitHub |
-| "AI is not set up" | add `GOOGLE_API_KEY` to `.env` |
-| Gemini `429 RESOURCE_EXHAUSTED` | free-tier quota used up (Pro models have almost none) → use `gemini-flash-latest`, wait, or enable billing |
+| Backend is very slow to start, or database calls hang | Usually broken IPv6 on the machine: each IPv6 address of the database times out before IPv4 is tried. `connect_timeout` in `db.py` limits the wait. A database region closer to you also helps a lot. |
+| `column ... does not exist` | The table is older than the model. Add the column with `ALTER TABLE`. |
+| CORS or network errors in the browser | Check `VITE_API_URL`, that the backend is running, and the CORS origin in `main.py`. |
+| GitHub: "redirect_uri is not associated" | The OAuth App callback URL must be `http://localhost:5174`. |
+| GitHub calls fail or repositories disappear | The token expired or was revoked. Use **Reconnect GitHub**. Make sure "Expire user access tokens" is unticked. |
+| Gemini `429 RESOURCE_EXHAUSTED` | Free-tier quota used up. Use `gemini-flash-latest`, wait, or enable billing. |
+| Sent back to the login page | The session token expired after 60 minutes. Log in again. |
 
----
+## Roadmap
 
-## Next steps
-
-**Before production (must do):**
-- [ ] Encrypt the GitHub token in the database again (Fernet with a `TOKEN_ENCRYPTION_KEY` in `.env`;
-      the old `core/crypto.py` is in git history: `git log --all -- Backend/app/core/crypto.py`)
-- [ ] Long random `JWT` secret, new GitHub client secret, new Gemini key (old ones were shared)
-
-**Features:**
-
-- [x] AI review of a pull request (LangChain + Gemini)
-- [ ] Second AI as backup. Claude on AWS Bedrock is blocked on this AWS account (Marketplace agreement
-      `NOT_AVAILABLE`). Bedrock models that worked in a test with our `ReviewResult` format:
-      `qwen.qwen3-coder-next`, `deepseek.v3.2`, `mistral.devstral-2-123b`, `moonshotai.kimi-k2.5`, `zai.glm-5`
-- [ ] Alembic migrations (instead of manual `ALTER TABLE`)
-- [x] AI writes a fix, human approves / rejects, then a new branch + PR on GitHub (simple version)
-- [ ] Fix: also write unit tests, retry when they fail, save fixes in a `fixes` table
-- [ ] LangGraph: split into 3 agents (structure, security, fix + tests)
-- [ ] Webhook: review automatically when a PR is opened
-- [ ] pgvector memory of past fixes
-- [ ] Deploy (public URL + update the GitHub OAuth App URLs)
+- [x] Email / password and GitHub authentication
+- [x] AI review of pull requests with structured findings
+- [x] Fix with AI → human approval → pull request
+- [ ] Unit tests generated with each fix, with automatic retry on failure
+- [ ] Store fixes and their status (pending / approved / rejected)
+- [ ] Automatic review when a PR is opened (GitHub webhook)
+- [ ] Multi-agent review with LangGraph (structure, security, fix + tests)
+- [ ] Alembic migrations
+- [ ] Encrypt GitHub tokens at rest
+- [ ] Deployment
