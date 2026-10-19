@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 PASSWORD = "admin123"
@@ -14,5 +15,5 @@ def divide(a, b):
 
 
 def read_config(path):
-    f = open(path)
-    return eval(f.read())
+    with open(path) as f:
+        return json.load(f)
