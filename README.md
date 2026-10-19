@@ -30,8 +30,8 @@ For any finding you can ask the AI to write the fix. Once you approve it, gitAud
 | 🔐 | **Accounts** | Sign up with email and password, or with GitHub. JWT-based sessions. |
 | 🐙 | **GitHub integration** | Connect your GitHub account through OAuth. Works with public and private repositories. |
 | 🔍 | **AI pull request review** | Reviews the diff of a PR and returns a summary plus structured findings: severity (high / medium / low), category (bug / security / bad practice), file, line, explanation and fix. |
-| 🛠️ | **Fix with AI** | Generates a fix for a single finding and shows the old and new code side by side. |
-| ✅ | **Human approval** | On approval it creates a branch, commits the fix and opens a pull request into the original PR's branch. |
+| 🛠️ | **Fix with AI** | Generates a fix and a unit test for a single finding, and shows the old and new code side by side. |
+| ✅ | **Human approval** | On approval it creates a branch, commits the fix and its test, and opens a pull request into the original PR's branch. Every fix is saved with its status. |
 | 🗂️ | **Review history** | Every review is saved, so earlier results are still there when you come back to a repository. |
 
 ## How it works
@@ -63,9 +63,36 @@ chain = prompt | model.with_structured_output(ReviewResult)
 ### Fix with AI
 
 1. The backend fetches the full file from the PR's branch.
-2. Gemini is asked to fix **only** the selected problem and return the complete file.
-3. The user compares the old and new code, then approves or rejects.
-4. On approval: a branch `gitaudit/fix-pr<number>-<timestamp>` is created from the PR's branch, the fixed file is committed, and a pull request is opened into the PR's branch.
+2. Gemini is asked to fix **only** the selected problem, return the complete file, and write a unit test for the fix.
+3. The fix is saved with status `pending`, so it survives a page refresh.
+4. The user compares the old code, new code and test, then approves or rejects.
+5. On approval: a branch `gitaudit/fix-pr<number>-<timestamp>` is created from the PR's branch, the fixed file and the test file are committed, and a pull request is opened into the PR's branch. The status becomes `approved` and the PR link is saved.
+6. On reject the status becomes `rejected`, and the user can ask for another fix.
+
+> Tests are **not** run on the gitAudit server, because running code from someone's repository there would be unsafe.
+> They run in the repository's own GitHub Actions.
+
+### Tests in CI + automatic retry
+
+```
+Approve → fix branch gets 3 commits:
+            1. the fixed file
+            2. tests/gitaudit/test_<name>.py
+            3. .github/workflows/gitaudit-tests.yml   (runs pytest on every push to gitaudit/**)
+        │
+        ▼
+GitHub Actions runs the tests
+        │
+        ▼  user clicks "Check tests"  →  POST /fixes/{id}/check
+        ├── still running → ci_status = running
+        ├── passed        → ci_status = passed
+        └── failed        → the test log goes back to Gemini → new code + test committed to the same branch
+                             → CI runs again (attempt 2, 3) → after 3 failed attempts ci_status = failed
+```
+
+- Only **Python** files get a test and CI. For other files `ci_status` is `skipped`.
+- Writing a workflow file needs the GitHub `workflow` scope. Users who connected GitHub before this must **Reconnect GitHub** once.
+- GitHub Actions must be enabled on the repository.
 
 ## Architecture
 
@@ -102,7 +129,7 @@ gitAudit/
 │       │   ├── db.py               Database engine and session
 │       │   ├── auth.py             JWT creation and the auth dependency
 │       │   └── llm.py              Gemini model (LangChain)
-│       ├── models/                 SQLAlchemy tables: users, reviews
+│       ├── models/                 SQLAlchemy tables: users, reviews, fixes
 │       ├── schemas/                Request bodies (…Dto) and responses
 │       ├── services/
 │       │   ├── auth_service.py     Register, login
@@ -236,8 +263,11 @@ All endpoints except register, login and GitHub login require `Authorization: Be
 | `GET` | `/github/repos/{owner}/{name}/pulls` | Open pull requests of a repository |
 | `POST` | `/reviews` | Review a PR with AI `{repo, pr_number}` |
 | `GET` | `/reviews?repo=owner/name` | Saved reviews of a repository, newest first |
-| `POST` | `/fixes` | Generate a fix for one finding `{repo, pr_number, finding}` |
-| `POST` | `/fixes/apply` | Create branch, commit and PR `{repo, pr_number, file, new_code, title}` |
+| `POST` | `/fixes` | Generate and save a fix + unit test for one finding `{repo, pr_number, finding}` |
+| `GET` | `/fixes?repo=owner/name` | Saved fixes of a repository, newest first |
+| `POST` | `/fixes/{id}/approve` | Create branch, commit fix + test, open PR |
+| `POST` | `/fixes/{id}/reject` | Mark a pending fix as rejected |
+| `POST` | `/fixes/{id}/check` | Check the fix's CI run; on failure, retry the fix with the test log (max 3 attempts) |
 
 ### Example finding
 
@@ -264,7 +294,7 @@ All GitHub access goes through the official [GitHub REST API](https://docs.githu
 |---|---|---|
 | Send the user to GitHub | `GET https://github.com/login/oauth/authorize?client_id=…&scope=repo user:email&state=…` | [Authorizing OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps) |
 | Exchange `code` for a token | `POST https://github.com/login/oauth/access_token` | same page |
-| Permissions requested | `repo`, `user:email` | [Scopes for OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps) |
+| Permissions requested | `repo`, `workflow`, `user:email` | [Scopes for OAuth apps](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/scopes-for-oauth-apps) |
 
 ### Reading data
 
@@ -283,8 +313,11 @@ All GitHub access goes through the official [GitHub REST API](https://docs.githu
 | Step | Endpoint | Docs |
 |---|---|---|
 | 1. Create a branch from the PR's head commit | `POST /repos/{owner}/{repo}/git/refs` | [Git references](https://docs.github.com/en/rest/git/refs) |
-| 2. Commit the fixed file to that branch | `PUT /repos/{owner}/{repo}/contents/{path}` | [Repository contents](https://docs.github.com/en/rest/repos/contents) |
+| 2. Commit the fixed file and the test file to that branch | `PUT /repos/{owner}/{repo}/contents/{path}` | [Repository contents](https://docs.github.com/en/rest/repos/contents) |
 | 3. Open a pull request into the PR's branch | `POST /repos/{owner}/{repo}/pulls` | [Pull requests](https://docs.github.com/en/rest/pulls/pulls) |
+| 4. Latest commit of the fix branch | `GET /repos/{owner}/{repo}/branches/{branch}` | [Branches](https://docs.github.com/en/rest/branches/branches) |
+| 5. CI run for that commit | `GET /repos/{owner}/{repo}/actions/runs?branch=…&head_sha=…` | [Workflow runs](https://docs.github.com/en/rest/actions/workflow-runs) |
+| 6. Failed test log | `GET /repos/{owner}/{repo}/actions/runs/{id}/jobs`, then `GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs` | [Workflow jobs](https://docs.github.com/en/rest/actions/workflow-jobs) |
 
 ### Things worth knowing
 
@@ -309,6 +342,8 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 **users**: `id`, `name`, `email` (unique), `hashed_password` (empty for GitHub-only accounts), `github_id`, `github_username`, `github_token`
 
 **reviews**: `id`, `user_id`, `repo`, `pr_number`, `pr_title`, `ai`, `summary`, `findings` (JSON), `created_at`
+
+**fixes**: `id`, `user_id`, `repo`, `pr_number`, `file`, `title`, `explanation`, `old_code`, `new_code`, `test_file`, `test_code`, `status` (`pending` / `approved` / `rejected`), `pr_url`, `branch`, `ci_status` (`running` / `passed` / `failed` / `skipped`), `attempts`, `created_at`
 
 > `create_all` only creates missing tables. It does not add new columns to existing tables, so schema changes need an `ALTER TABLE` until migrations are added.
 
@@ -337,8 +372,11 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 - [x] Email / password and GitHub authentication
 - [x] AI review of pull requests with structured findings
 - [x] Fix with AI → human approval → pull request
-- [ ] Unit tests generated with each fix, with automatic retry on failure
-- [ ] Store fixes and their status (pending / approved / rejected)
+- [x] Unit test generated with each fix and committed in the fix PR
+- [x] Store fixes and their status (pending / approved / rejected)
+- [x] Run the tests in GitHub Actions and retry the fix with the test log when they fail (Python)
+- [ ] Check CI automatically (webhook) instead of the "Check tests" button
+- [ ] Tests and CI for other languages
 - [ ] Automatic review when a PR is opened (GitHub webhook)
 - [ ] Multi-agent review with LangGraph (structure, security, fix + tests)
 - [ ] Alembic migrations

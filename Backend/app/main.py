@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .core.db import Base, engine
-from .models import review as review_model, user 
+from .models import fix as fix_model, review as review_model, user
 from .routers import auth, fix, github, review
 
 Base.metadata.create_all(bind=engine)

@@ -10,11 +10,19 @@ const SEVERITY = {
   low: { card: 'border-l-blue-500', badge: 'bg-blue-50 text-blue-600' },
 };
 
+const CI_STATUS = {
+  running: { label: 'Tests running', badge: 'bg-amber-50 text-amber-600' },
+  passed: { label: 'Tests passed', badge: 'bg-emerald-50 text-emerald-600' },
+  failed: { label: 'Tests failed', badge: 'bg-red-50 text-red-600' },
+  skipped: { label: 'No tests (not Python)', badge: 'bg-slate-100 text-slate-500' },
+};
+
 const RepoPage = () => {
   const { owner, name } = useParams();
   const repo = `${owner}/${name}`;
   const [pulls, setPulls] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [fixes, setFixes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [reviewing, setReviewing] = useState(null);
   const [error, setError] = useState("");
@@ -34,12 +42,14 @@ const RepoPage = () => {
   useEffect(() => {
     const fetchRepo = async () => {
       try {
-        const [p, r] = await Promise.all([
+        const [p, r, f] = await Promise.all([
           axios.get(import.meta.env.VITE_API_URL + `/github/repos/${repo}/pulls`, { headers }),
           axios.get(import.meta.env.VITE_API_URL + "/reviews", { headers, params: { repo } }),
+          axios.get(import.meta.env.VITE_API_URL + "/fixes", { headers, params: { repo } }),
         ]);
         setPulls(p.data);
         setReviews(r.data);
+        setFixes(f.data);
       } catch (err) {
         handleError(err, "Couldn't load pull requests. Please try again.");
       } finally {
@@ -136,7 +146,7 @@ const RepoPage = () => {
                     {reviewing === pr.number ? "Reviewing… (can take a minute)" : review ? "Review again" : "Review with AI"}
                   </button>
                 </div>
-                {review && <ReviewResult review={review} repo={repo} />}
+                {review && <ReviewResult review={review} repo={repo} fixes={fixes} setFixes={setFixes} />}
               </div>
             );
           })}
@@ -146,7 +156,7 @@ const RepoPage = () => {
   );
 };
 
-const ReviewResult = ({ review, repo }) => (
+const ReviewResult = ({ review, repo, fixes, setFixes }) => (
   <div className="mt-6 pt-6 border-t border-slate-100">
     {review.ai && (
       <p className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest mb-2">Reviewed by {review.ai}</p>
@@ -176,97 +186,108 @@ const ReviewResult = ({ review, repo }) => (
           <p className="text-sm text-slate-600 mt-1.5">
             <span className="font-bold text-slate-800">Fix:</span> {f.suggestion}
           </p>
-          <FixBox repo={repo} prNumber={review.pr_number} finding={f} />
+          <FixBox repo={repo} prNumber={review.pr_number} finding={f} fixes={fixes} setFixes={setFixes} />
         </div>
       ))}
     </div>
   </div>
 );
 
-const FixBox = ({ repo, prNumber, finding }) => {
-  const [fix, setFix] = useState(null);
+const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
   const [loading, setLoading] = useState(false);
-  const [prUrl, setPrUrl] = useState("");
   const [message, setMessage] = useState("");
 
   const headers = { Authorization: `Bearer ${Cookies.get("token")}` };
 
-  const makeFix = async () => {
+  const fix = fixes.find((x) => x.pr_number === prNumber && x.file === finding.file && x.title === finding.title);
+
+  const saveFix = (updated) => setFixes([updated, ...fixes.filter((x) => x.id !== updated.id)]);
+
+  const send = async (url, body, fallback) => {
     setMessage("");
     setLoading(true);
     try {
-      const response = await axios.post(
-        import.meta.env.VITE_API_URL + "/fixes",
-        { repo, pr_number: prNumber, finding },
-        { headers }
-      );
-      setFix(response.data);
+      const response = await axios.post(import.meta.env.VITE_API_URL + url, body, { headers });
+      saveFix(response.data);
     } catch (err) {
-      setMessage(err.response?.data?.detail || "AI fix failed. Please try again.");
+      setMessage(err.response?.data?.detail || fallback);
     } finally {
       setLoading(false);
     }
   };
 
-  const approve = async () => {
-    setMessage("");
-    setLoading(true);
-    try {
-      const response = await axios.post(
-        import.meta.env.VITE_API_URL + "/fixes/apply",
-        { repo, pr_number: prNumber, file: fix.file, new_code: fix.new_code, title: finding.title },
-        { headers }
-      );
-      setPrUrl(response.data.pr_url);
-    } catch (err) {
-      setMessage(err.response?.data?.detail || "Could not create the pull request. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const makeFix = () => send("/fixes", { repo, pr_number: prNumber, finding }, "AI fix failed. Please try again.");
+  const approve = () => send(`/fixes/${fix.id}/approve`, {}, "Could not create the pull request. Please try again.");
+  const reject = () => send(`/fixes/${fix.id}/reject`, {}, "Could not reject the fix. Please try again.");
+  const checkTests = () => send(`/fixes/${fix.id}/check`, {}, "Could not check the tests. Please try again.");
 
-  if (prUrl) {
+  if (fix?.status === "approved") {
     return (
-      <a
-        href={prUrl}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:underline"
-      >
-        <CheckCircle2 size={16} /> Fix pull request created. Open it <ExternalLink size={13} />
-      </a>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <a
+          href={fix.pr_url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:underline"
+        >
+          <CheckCircle2 size={16} /> Fix pull request created. Open it <ExternalLink size={13} />
+        </a>
+        {fix.ci_status && (
+          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${CI_STATUS[fix.ci_status]?.badge}`}>
+            {CI_STATUS[fix.ci_status]?.label} · attempt {fix.attempts}
+          </span>
+        )}
+        {fix.ci_status === "running" && (
+          <button
+            onClick={checkTests}
+            disabled={loading}
+            className="py-2 px-4 bg-white border border-slate-200 hover:border-indigo-300 text-indigo-600 text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+          >
+            {loading ? "Checking..." : "Check tests"}
+          </button>
+        )}
+        {message && <p className="w-full text-xs font-bold text-red-600">{message}</p>}
+      </div>
     );
   }
 
   return (
     <div className="mt-4">
-      {!fix && (
-        <button
-          onClick={makeFix}
-          disabled={loading}
-          className="flex items-center gap-2 py-2 px-4 bg-white border border-slate-200 hover:border-indigo-300 text-indigo-600 text-xs font-bold rounded-xl transition-all disabled:opacity-50"
-        >
-          <Wrench size={13} /> {loading ? "Writing fix… (can take a minute)" : "Fix with AI"}
-        </button>
+      {(!fix || fix.status === "rejected") && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={makeFix}
+            disabled={loading}
+            className="flex items-center gap-2 py-2 px-4 bg-white border border-slate-200 hover:border-indigo-300 text-indigo-600 text-xs font-bold rounded-xl transition-all disabled:opacity-50"
+          >
+            <Wrench size={13} /> {loading ? "Writing fix… (can take a minute)" : fix ? "Try another fix" : "Fix with AI"}
+          </button>
+          {fix && <span className="text-xs font-bold text-slate-400">Last fix was rejected</span>}
+        </div>
       )}
 
-      {fix && (
+      {fix?.status === "pending" && (
         <div className="bg-white border border-slate-100 rounded-2xl p-4">
           <p className="text-sm text-slate-600 mb-3">{fix.explanation}</p>
           <div className="grid md:grid-cols-2 gap-3">
             <CodeBlock label="Old code" code={fix.old_code} />
             <CodeBlock label="New code" code={fix.new_code} />
           </div>
+          {fix.test_file && (
+            <div className="mt-3">
+              <CodeBlock label={`Unit test · ${fix.test_file}`} code={fix.test_code} />
+            </div>
+          )}
           <div className="flex flex-wrap gap-2 mt-4">
             <button
               onClick={approve}
               disabled={loading}
               className="py-2.5 px-5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white text-xs font-bold rounded-xl transition-all disabled:opacity-50"
             >
-              {loading ? "Creating pull request..." : "Approve & create PR"}
+              {loading ? "Please wait..." : "Approve & create PR"}
             </button>
             <button
-              onClick={() => setFix(null)}
+              onClick={reject}
               disabled={loading}
               className="py-2.5 px-5 text-red-500 hover:bg-red-50 text-xs font-bold rounded-xl transition-all disabled:opacity-50"
             >

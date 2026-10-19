@@ -90,6 +90,22 @@ def call_github(token: str, path: str):
     return res.json()
 
 
+def get_github_text(token: str, path: str):
+    res = httpx.get("https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"}, follow_redirects=True)
+    if res.status_code != 200:
+        raise HTTPException(status_code=400, detail="Could not read the test log from GitHub")
+    return res.text
+
+
+def find_file_sha(token: str, repo: str, path: str, branch: str):
+    res = httpx.get(f"https://api.github.com/repos/{repo}/contents/{path}?ref={branch}", headers={"Authorization": f"Bearer {token}"})
+    if res.status_code == 404:
+        return None
+    if res.status_code != 200:
+        raise HTTPException(status_code=400, detail="GitHub request failed, connect GitHub again")
+    return res.json()["sha"]
+
+
 def send_github(token: str, method: str, path: str, body: dict):
     res = httpx.request(method, "https://api.github.com" + path, json=body, headers={"Authorization": f"Bearer {token}"})
     if res.status_code not in (200, 201):

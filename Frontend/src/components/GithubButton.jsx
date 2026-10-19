@@ -7,7 +7,7 @@ const GithubButton = ({ label, className = '' }) => {
     const state = crypto.randomUUID();
     sessionStorage.setItem('github_state', state);
     window.location.href =
-      `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo%20user:email&state=${state}`;
+      `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo%20workflow%20user:email&state=${state}`;
   };
 
   return (
