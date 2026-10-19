@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-PASSWORD = "admin123"
+PASSWORD = os.getenv("PASSWORD")
 
 
 def get_user(name):
