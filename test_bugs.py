@@ -10,7 +10,10 @@ def get_user(name):
 
 
 def divide(a, b):
-    return a / b
+    try:
+        return a / b
+    except ZeroDivisionError:
+        return None
 
 
 def read_config(path):
