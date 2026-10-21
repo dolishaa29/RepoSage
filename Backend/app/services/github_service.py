@@ -90,6 +90,8 @@ def call_github(token: str, path: str):
     return res.json()
 
 
+# CI logs are plain text, not JSON, and GitHub sends us to the log with a redirect,
+# so this helper follows the redirect and returns the text
 def get_github_text(token: str, path: str):
     res = httpx.get("https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"}, follow_redirects=True)
     if res.status_code != 200:
@@ -97,6 +99,8 @@ def get_github_text(token: str, path: str):
     return res.text
 
 
+# the file's current sha, or None if it does not exist yet. A missing file is normal here
+# (a new test file), so 404 is not an error. call_github would raise on it.
 def find_file_sha(token: str, repo: str, path: str, branch: str):
     res = httpx.get(f"https://api.github.com/repos/{repo}/contents/{path}?ref={branch}", headers={"Authorization": f"Bearer {token}"})
     if res.status_code == 404:
@@ -106,6 +110,8 @@ def find_file_sha(token: str, repo: str, path: str, branch: str):
     return res.json()["sha"]
 
 
+# call_github only reads (GET). This one writes (POST / PUT): create a branch, commit a file, open a PR.
+# GitHub's own error message is passed on, because it says exactly what went wrong (e.g. missing permission).
 def send_github(token: str, method: str, path: str, body: dict):
     res = httpx.request(method, "https://api.github.com" + path, json=body, headers={"Authorization": f"Bearer {token}"})
     if res.status_code not in (200, 201):

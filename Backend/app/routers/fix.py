@@ -5,8 +5,10 @@ from ..core.auth import auth
 from ..core.db import get_db
 from ..models.user import User
 from ..schemas.fix import FixDto, FixResponse
-from ..services import fix_service
+from ..services.fix import fix_service
 
+# flow: POST /fixes (AI writes fix) → approve or reject → check (CI result, retry on failure)
+# approve / reject / check are separate POSTs on purpose: each one is a step the person takes
 router = APIRouter(prefix="/fixes", tags=["Fixes"])
 
 

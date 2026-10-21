@@ -77,8 +77,8 @@ chain = prompt | model.with_structured_output(ReviewResult)
 ```
 Approve → fix branch gets 3 commits:
             1. the fixed file
-            2. tests/gitaudit/test_<name>.py
-            3. .github/workflows/gitaudit-tests.yml   (runs pytest on every push to gitaudit/**)
+            2. the unit test (path and framework chosen by the AI for the repo's language)
+            3. .github/workflows/gitaudit-tests.yml   (runs the AI's test command on every push to gitaudit/**)
         │
         ▼
 GitHub Actions runs the tests
@@ -90,7 +90,9 @@ GitHub Actions runs the tests
                              → CI runs again (attempt 2, 3) → after 3 failed attempts ci_status = failed
 ```
 
-- Only **Python** files get a test and CI. For other files `ci_status` is `skipped`.
+- Works for **any language**. `ubuntu-latest` already has Python, Node, Java, Go, Ruby, PHP, .NET and Rust, so the workflow only runs the test command. The AI picks the usual framework (pytest, Jest, JUnit, go test, RSpec, PHPUnit, xUnit, cargo test, ...) and the usual test location.
+- The test command is shown on screen before approving, so you can see exactly what CI will run.
+- Files that cannot have a unit test (config, docs, ...) get no test, and `ci_status` is `skipped`.
 - Writing a workflow file needs the GitHub `workflow` scope. Users who connected GitHub before this must **Reconnect GitHub** once.
 - GitHub Actions must be enabled on the repository.
 
@@ -135,7 +137,11 @@ gitAudit/
 │       │   ├── auth_service.py     Register, login
 │       │   ├── github_service.py   GitHub OAuth, repos, PRs, API helpers
 │       │   ├── review_service.py   AI review of a pull request
-│       │   └── fix_service.py      AI fix + branch / commit / PR
+│       │   └── fix/                Fix with AI
+│       │       ├── fix_service.py  the flow: make → approve / reject → check tests / retry
+│       │       ├── prompts.py      AI prompts and chains
+│       │       ├── workflow.py     GitHub Actions file that runs the test
+│       │       └── github_files.py read / commit files, branch, PR, CI run and log
 │       └── routers/                auth, github, review, fix
 │
 └── Frontend/
@@ -343,7 +349,7 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 
 **reviews**: `id`, `user_id`, `repo`, `pr_number`, `pr_title`, `ai`, `summary`, `findings` (JSON), `created_at`
 
-**fixes**: `id`, `user_id`, `repo`, `pr_number`, `file`, `title`, `explanation`, `old_code`, `new_code`, `test_file`, `test_code`, `status` (`pending` / `approved` / `rejected`), `pr_url`, `branch`, `ci_status` (`running` / `passed` / `failed` / `skipped`), `attempts`, `created_at`
+**fixes**: `id`, `user_id`, `repo`, `pr_number`, `file`, `title`, `explanation`, `old_code`, `new_code`, `test_file`, `test_code`, `test_command`, `status` (`pending` / `approved` / `rejected`), `pr_url`, `branch`, `ci_status` (`running` / `passed` / `failed` / `skipped`), `attempts`, `created_at`
 
 > `create_all` only creates missing tables. It does not add new columns to existing tables, so schema changes need an `ALTER TABLE` until migrations are added.
 
@@ -359,7 +365,7 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 
 | Problem | Solution |
 |---|---|
-| Backend is very slow to start, or database calls hang | Usually broken IPv6 on the machine: each IPv6 address of the database times out before IPv4 is tried. `connect_timeout` in `db.py` limits the wait. A database region closer to you also helps a lot. |
+| Backend is very slow to start, or database calls hang | Usually broken IPv6 on the machine: each IPv6 address of the database times out before IPv4 is tried. `db.py` connects to the IPv4 address directly (`hostaddr`) and replaces idle connections every 4 minutes (`pool_recycle`), because Neon closes them silently. A database region closer to you also helps a lot. |
 | `column ... does not exist` | The table is older than the model. Add the column with `ALTER TABLE`. |
 | CORS or network errors in the browser | Check `VITE_API_URL`, that the backend is running, and the CORS origin in `main.py`. |
 | GitHub: "redirect_uri is not associated" | The OAuth App callback URL must be `http://localhost:5174`. |
@@ -374,9 +380,8 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 - [x] Fix with AI → human approval → pull request
 - [x] Unit test generated with each fix and committed in the fix PR
 - [x] Store fixes and their status (pending / approved / rejected)
-- [x] Run the tests in GitHub Actions and retry the fix with the test log when they fail (Python)
+- [x] Run the tests in GitHub Actions and retry the fix with the test log when they fail (any language)
 - [ ] Check CI automatically (webhook) instead of the "Check tests" button
-- [ ] Tests and CI for other languages
 - [ ] Automatic review when a PR is opened (GitHub webhook)
 - [ ] Multi-agent review with LangGraph (structure, security, fix + tests)
 - [ ] Alembic migrations
