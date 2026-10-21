@@ -49,16 +49,26 @@ flowchart LR
     H -- No --> F
 ```
 
-### AI review
+### AI review: 3 agents with LangGraph
 
 1. The backend fetches the pull request and its changed files from the GitHub API.
 2. The patches are joined into one diff (binary files are skipped).
-3. A LangChain chain sends the diff to Gemini with **structured output**, so the model must return a `ReviewResult` object (`summary` + `findings[]`) instead of free text.
-4. The result is saved in PostgreSQL and returned to the frontend.
+3. A **LangGraph** graph runs three agents:
 
-```python
-chain = prompt | model.with_structured_output(ReviewResult)
+```mermaid
+flowchart LR
+    S((start)) --> A["🏗️ Structure agent<br/>bugs, logic, bad practices"]
+    S --> B["🔒 Security agent<br/>injection, secrets, auth, unsafe input"]
+    A --> L["🧩 Lead agent<br/>remove duplicates, sort, summary"]
+    B --> L
+    L --> E((end))
 ```
+
+- The structure and security agents run **in parallel**, and each one looks at one kind of problem only, which gives more focused findings.
+- The lead agent waits for both, removes duplicates, orders by severity and writes the summary.
+- Every agent is a LangChain chain with **structured output** (`prompt | model.with_structured_output(...)`), so the result is always a `ReviewResult` (`summary` + `findings[]`), never free text.
+
+4. The result is saved in PostgreSQL and returned to the frontend.
 
 ### Fix with AI
 
@@ -116,7 +126,7 @@ Every backend request follows the same layers: **router → service → database
 | Database | PostgreSQL (Neon) |
 | Auth | JWT (`python-jose`), password hashing with Argon2 |
 | GitHub | GitHub OAuth App, `httpx` |
-| AI | LangChain, `langchain-google-genai`, Google Gemini (`gemini-flash-latest`) |
+| AI | LangChain, LangGraph, `langchain-google-genai`, Google Gemini (`gemini-flash-latest`) |
 | Frontend | React 19, Vite, Tailwind CSS 4, React Router, Axios, lucide-react |
 
 ## Project structure
@@ -136,7 +146,10 @@ gitAudit/
 │       ├── services/
 │       │   ├── auth_service.py     Register, login
 │       │   ├── github_service.py   GitHub OAuth, repos, PRs, API helpers
-│       │   ├── review_service.py   AI review of a pull request
+│       │   ├── review/             AI review (LangGraph)
+│       │   │   ├── review_service.py  diff from GitHub → graph → save
+│       │   │   ├── graph.py        structure ∥ security → lead
+│       │   │   └── prompts.py      the 3 agents' prompts and chains
 │       │   └── fix/                Fix with AI
 │       │       ├── fix_service.py  the flow: make → approve / reject → check tests / retry
 │       │       ├── prompts.py      AI prompts and chains
@@ -383,7 +396,7 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 - [x] Run the tests in GitHub Actions and retry the fix with the test log when they fail (any language)
 - [ ] Check CI automatically (webhook) instead of the "Check tests" button
 - [ ] Automatic review when a PR is opened (GitHub webhook)
-- [ ] Multi-agent review with LangGraph (structure, security, fix + tests)
+- [x] Multi-agent review with LangGraph (structure + security in parallel, lead agent merges)
 - [ ] Alembic migrations
 - [ ] Encrypt GitHub tokens at rest
 - [ ] Deployment

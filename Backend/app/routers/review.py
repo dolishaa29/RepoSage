@@ -5,7 +5,7 @@ from ..core.auth import auth
 from ..core.db import get_db
 from ..models.user import User
 from ..schemas.review import ReviewDto, ReviewResponse
-from ..services import review_service
+from ..services.review import review_service
 
 router = APIRouter(prefix="/reviews", tags=["Reviews"])
 

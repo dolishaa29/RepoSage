@@ -13,6 +13,10 @@ class Finding(BaseModel):
     explanation: str = Field(description="why this is a problem")
     suggestion: str = Field(description="how to fix it")
 
+class AgentResult(BaseModel):
+    findings: list[Finding]
+
+
 class ReviewResult(BaseModel):
     summary: str = Field(description="2-3 sentences about the pull request and its overall risk")
     findings: list[Finding]
