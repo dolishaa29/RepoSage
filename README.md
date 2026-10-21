@@ -141,10 +141,13 @@ Every backend request follows the same layers: **router → service → database
 gitAudit/
 ├── Backend/
 │   ├── requirements.txt
+│   ├── alembic.ini
+│   ├── migrations/                 Alembic: env.py + versions/ (one file per schema change)
 │   └── app/
 │       ├── main.py                 App, CORS, table creation, routers
 │       ├── core/
 │       │   ├── db.py               Database engine and session
+│       │   ├── crypto.py           Fernet encryption + EncryptedString column type
 │       │   ├── auth.py             JWT creation and the auth dependency
 │       │   └── llm.py              Gemini model (LangChain)
 │       ├── models/                 SQLAlchemy tables: users, reviews, fixes
@@ -217,12 +220,20 @@ JWT=<long random string>
 GITHUB_CLIENT_ID=<client id>
 GITHUB_CLIENT_SECRET=<client secret>
 GOOGLE_API_KEY=<gemini api key>
+TOKEN_ENCRYPTION_KEY=<fernet key>
 ```
 
-Generate a JWT secret with:
+Generate the secrets with:
 
 ```bash
-python -c "import secrets; print(secrets.token_hex(32))"
+python -c "import secrets; print(secrets.token_hex(32))"                                   # JWT
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"  # TOKEN_ENCRYPTION_KEY
+```
+
+Create the tables (Alembic):
+
+```bash
+alembic upgrade head
 ```
 
 Start the API:
@@ -231,7 +242,22 @@ Start the API:
 uvicorn app.main:app --reload --port 8001
 ```
 
-Tables are created automatically on startup. Interactive API docs are at **http://localhost:8001/docs**.
+Interactive API docs are at **http://localhost:8001/docs**.
+
+### Database migrations (Alembic)
+
+Tables are created and changed only through Alembic migrations in `Backend/migrations/versions/`.
+
+```bash
+# after changing a model: write a migration from the difference between models and database
+alembic revision --autogenerate -m "what changed"
+# read the generated file, then apply it
+alembic upgrade head
+
+alembic current      # which version the database is at
+alembic downgrade -1 # undo the last migration
+alembic check        # are models and database in sync?
+```
 
 ### 3. Frontend
 
@@ -267,6 +293,7 @@ Open **http://localhost:5174**.
 | `GITHUB_CLIENT_ID` | Backend | GitHub OAuth App client ID |
 | `GITHUB_CLIENT_SECRET` | Backend | GitHub OAuth App client secret |
 | `GOOGLE_API_KEY` | Backend | Google Gemini API key |
+| `TOKEN_ENCRYPTION_KEY` | Backend | Fernet key used to encrypt GitHub tokens in the database. Keep it safe: without it the saved tokens cannot be read. |
 | `FRONTEND_URL` | Backend (optional) | Where `/github/callback` forwards to (default `http://localhost:5174`) |
 | `VITE_API_URL` | Frontend | Backend base URL |
 | `VITE_GITHUB_CLIENT_ID` | Frontend | GitHub OAuth App client ID |
@@ -369,22 +396,27 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 
 **fixes**: `id`, `user_id`, `repo`, `pr_number`, `file`, `title`, `explanation`, `old_code`, `new_code`, `test_file`, `test_code`, `test_command`, `status` (`pending` / `approved` / `rejected`), `pr_url`, `branch`, `ci_status` (`running` / `passed` / `failed` / `skipped`), `attempts`, `created_at`
 
-> `create_all` only creates missing tables. It does not add new columns to existing tables, so schema changes need an `ALTER TABLE` until migrations are added.
+> Schema changes go through Alembic (see **Database migrations**).
+> `users.github_token` is stored **encrypted** (Fernet). The `EncryptedString` column type in `core/crypto.py` encrypts on save and decrypts on load, so the rest of the code uses the token as normal text.
+> The database also has two old, unused tables from earlier versions (`github_accounts`, `audits`). Alembic ignores them. Drop them by hand if you don't need their data.
 
 ## Security notes
 
 - Passwords are hashed with Argon2. Raw passwords are never stored.
 - The user's GitHub access token stays on the server and is never sent to the browser.
+- GitHub tokens are encrypted at rest with Fernet. A leaked database alone does not reveal them, because the key is only in `.env`.
 - The OAuth `state` parameter is checked to protect the GitHub login from CSRF.
 - AI fixes never touch the default branch and are never merged automatically.
-- ⚠️ **Before production:** encrypt GitHub tokens at rest, and use strong, freshly rotated secrets for `JWT`, the GitHub client secret, the Gemini key and the database password.
+- ⚠️ **Before production:** use strong, freshly rotated secrets for `JWT`, the GitHub client secret, the Gemini key, the database password and `TOKEN_ENCRYPTION_KEY`.
 
 ## Troubleshooting
 
 | Problem | Solution |
 |---|---|
 | Backend is very slow to start, or database calls hang | Usually broken IPv6 on the machine: each IPv6 address of the database times out before IPv4 is tried. `db.py` connects to the IPv4 address directly (`hostaddr`) and replaces idle connections every 4 minutes (`pool_recycle`), because Neon closes them silently. A database region closer to you also helps a lot. |
-| `column ... does not exist` | The table is older than the model. Add the column with `ALTER TABLE`. |
+| `column ... does not exist` | The database is behind the models. Run `alembic upgrade head`. |
+| Code changes are not picked up by `--reload` (Windows) | Start with polling: `WATCHFILES_FORCE_POLLING=true uvicorn app.main:app --reload --port 8001` (PowerShell: `$env:WATCHFILES_FORCE_POLLING="true"; uvicorn ...`). |
+| AI calls take minutes | Same IPv6 problem as the database: every outgoing connection tries IPv6 first. Make Windows prefer IPv4, or fix IPv6 on the network. |
 | CORS or network errors in the browser | Check `VITE_API_URL`, that the backend is running, and the CORS origin in `main.py`. |
 | GitHub: "redirect_uri is not associated" | The OAuth App callback URL must be `http://localhost:5174`. |
 | GitHub calls fail or repositories disappear | The token expired or was revoked. Use **Reconnect GitHub**. Make sure "Expire user access tokens" is unticked. |
@@ -402,6 +434,6 @@ Interview notes on how this was built: [docs/INTERVIEW_PREP.md](docs/INTERVIEW_P
 - [ ] Check CI automatically (webhook) instead of the "Check tests" button
 - [ ] Automatic review when a PR is opened (GitHub webhook)
 - [x] Multi-agent review with LangChain (structure + security in parallel, lead agent merges)
-- [ ] Alembic migrations
-- [ ] Encrypt GitHub tokens at rest
+- [x] Alembic migrations
+- [x] Encrypt GitHub tokens at rest
 - [ ] Deployment
