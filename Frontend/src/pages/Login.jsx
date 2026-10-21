@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import GithubButton from '../components/GithubButton';
+
+const input = "w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -16,82 +18,36 @@ const Login = () => {
     setMessage("");
     setLoading(true);
     try {
-      const response = await axios.post(
-        import.meta.env.VITE_API_URL + "/login",
-        { email, password },
-        { headers: { "Content-Type": "application/json" } }
-      );
+      const response = await axios.post(import.meta.env.VITE_API_URL + "/login", { email, password });
       Cookies.set("token", response.data.access_token, { expires: 1 });
       navigate("/dashboard");
     } catch (err) {
-      setMessage(err.response?.data?.detail || "Login Failed! Please try again.");
+      setMessage(err.response?.data?.detail || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 bg-[radial-gradient(ellipse_at_top,_#f4f6ec,_#fafaf9)] font-sans overflow-hidden py-10">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
+      <div className="w-full max-w-sm p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
+        <h1 className="text-3xl font-black text-center mb-8">git<span className="text-indigo-600">Audit</span></h1>
 
-      <div className="motion-safe:animate-[floatSlow_9s_ease-in-out_infinite] absolute top-[-10%] left-[-5%] w-96 h-96 bg-violet-200/40 blur-[100px] rounded-full" />
-      <div className="motion-safe:animate-[floatSlower_11s_ease-in-out_infinite] absolute bottom-[-10%] right-[-5%] w-96 h-96 bg-indigo-200/40 blur-[100px] rounded-full" />
-
-      <div className="motion-safe:animate-[fadeInUp_0.6s_ease-out_both] relative z-10 w-full max-w-[420px] p-10 bg-white/80 backdrop-blur-xl rounded-[2.5rem] border border-white shadow-[0_30px_60px_-15px_rgba(147,51,234,0.1)] mx-4">
-
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-black tracking-tighter text-slate-900">
-            git<span className="bg-gradient-to-r from-violet-600 to-indigo-600 bg-clip-text text-transparent">Audit</span>
-          </h1>
-          <p className="text-slate-400 text-[11px] font-bold uppercase tracking-[0.2em] mt-2">Log in to your account</p>
-        </div>
-
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 mb-2">Email</label>
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 transition-all shadow-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 mb-2">Password</label>
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="w-full px-5 py-4 bg-white border border-slate-200 rounded-2xl text-slate-800 placeholder:text-slate-300 focus:outline-none focus:ring-4 focus:ring-violet-500/10 focus:border-violet-400 transition-all shadow-sm"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-4 mt-4 bg-gradient-to-r from-violet-600 to-indigo-600 hover:opacity-90 text-white font-bold rounded-2xl shadow-xl shadow-violet-200 transform transition-all active:scale-[0.98] disabled:opacity-50"
-          >
-            {loading ? "Signing In..." : "Sign In"}
+        <form onSubmit={handleLogin} className="space-y-4">
+          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className={input} />
+          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required className={input} />
+          <button disabled={loading} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl disabled:opacity-50">
+            {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
 
-        <div className="flex items-center gap-3 my-6 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-          <span className="flex-1 border-t border-slate-200" /> or <span className="flex-1 border-t border-slate-200" />
-        </div>
+        <p className="text-center text-xs text-slate-400 my-4">or</p>
         <GithubButton label="Continue with GitHub" className="w-full" />
 
         <p className="text-center text-sm text-slate-500 mt-6">
-          Don't have an account?
-          <button onClick={() => navigate('/register')} className="text-violet-600 hover:underline ml-1 font-semibold">Register</button>
+          No account? <Link to="/register" className="text-indigo-600 font-semibold">Register</Link>
         </p>
-
-        {message && (
-          <p className="text-center text-xs mt-4 font-bold text-red-600">{message}</p>
-        )}
+        {message && <p className="text-center text-sm mt-4 font-bold text-red-600">{message}</p>}
       </div>
     </div>
   );

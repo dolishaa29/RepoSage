@@ -11,49 +11,13 @@
   --color-slate-700: #44403c;
   --color-slate-800: #292524;
   --color-slate-900: #1c1917;
-  --color-slate-950: #0c0a09;
 
-  --color-indigo-50: #f4f6ec;
-  --color-indigo-100: #e7ecd7;
-  --color-indigo-200: #d1ddae;
   --color-indigo-300: #b3c67e;
   --color-indigo-400: #93a85a;
-  --color-indigo-500: #748a3f;
   --color-indigo-600: #566b2e;
   --color-indigo-700: #445425;
-  --color-indigo-800: #38431f;
-  --color-indigo-900: #2f3818;
-  --color-indigo-950: #171d0d;
-
-  --color-violet-50: #f6f7ec;
-  --color-violet-100: #eaeed7;
-  --color-violet-200: #d7ddae;
-  --color-violet-300: #c0c982;
-  --color-violet-400: #a3b25e;
-  --color-violet-500: #879943;
-  --color-violet-600: #6d7d34;
-  --color-violet-700: #56642a;
-}
-
-html {
-  scroll-behavior: smooth;
 }
 
 body {
   background: #fafaf9;
-}
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes floatSlow {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(12px, -22px); }
-}
-
-@keyframes floatSlower {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(-16px, 18px); }
 }
