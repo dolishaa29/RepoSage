@@ -10,14 +10,10 @@ from .github_files import create_branch, get_pr, latest_run, open_pr, read_file,
 from .prompts import chain, retry_chain
 from .workflow import WORKFLOW_FILE, make_workflow
 
-# Flow: make_fix → person approves or rejects → approve opens a PR → GitHub Actions runs the test
-#       → check_tests: passed / failed / AI tries again (max 3).
-# Tests run on GitHub, never on our server: running code from someone's repo here would be unsafe.
 
 MAX_ATTEMPTS = 3
 
 
-# POST /fixes: AI writes the fix + test. Saved as "pending", nothing is sent to GitHub yet.
 def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Finding):
     token = get_token(user)
     pr = get_pr(token, repo, pr_number)
@@ -58,8 +54,6 @@ def get_fixes(db: Session, user: User, repo: str):
     return db.query(Fix).filter(Fix.user_id == user.id, Fix.repo == repo).order_by(Fix.id.desc()).all()
 
 
-# POST /fixes/{id}/approve: new branch → commit fix, test, workflow → PR into the original PR's branch.
-# The workflow is committed last, so CI runs once, when code and test are already there.
 def approve_fix(db: Session, user: User, fix_id: int):
     fix = get_pending_fix(db, user, fix_id)
     token = get_token(user)
@@ -85,7 +79,6 @@ def approve_fix(db: Session, user: User, fix_id: int):
     return fix
 
 
-# POST /fixes/{id}/reject: nothing was sent to GitHub, so we only mark it
 def reject_fix(db: Session, user: User, fix_id: int):
     fix = get_pending_fix(db, user, fix_id)
     fix.status = "rejected"
@@ -94,7 +87,6 @@ def reject_fix(db: Session, user: User, fix_id: int):
     return fix
 
 
-# POST /fixes/{id}/check: read the CI result. Failed → the AI gets the error and tries again on the same branch.
 def check_tests(db: Session, user: User, fix_id: int):
     fix = get_my_fix(db, user, fix_id)
     if fix.ci_status != "running":
@@ -116,7 +108,6 @@ def check_tests(db: Session, user: User, fix_id: int):
     return fix
 
 
-# new code + test + command on the SAME branch, so the open PR updates and CI runs again
 def retry_fix(token: str, fix: Fix, log: str):
     try:
         result = retry_chain.invoke({
@@ -141,7 +132,6 @@ def retry_fix(token: str, fix: Fix, log: str):
     save_file(token, fix.repo, WORKFLOW_FILE, make_workflow(fix.test_command), fix.branch, f"Retry {fix.attempts}: test command")
 
 
-# the fix must belong to this user, so nobody can approve someone else's fix by guessing an id
 def get_my_fix(db: Session, user: User, fix_id: int):
     fix = db.query(Fix).filter(Fix.id == fix_id, Fix.user_id == user.id).first()
     if fix is None:

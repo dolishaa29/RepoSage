@@ -1,9 +1,3 @@
-"""initial tables: users, reviews, fixes
-
-These tables already existed (made by create_all) when Alembic was added,
-so the existing database was only marked as being at this version ("alembic stamp 0001").
-A new, empty database gets them by running "alembic upgrade head".
-"""
 import sqlalchemy as sa
 from alembic import op
 
@@ -16,7 +10,7 @@ depends_on = None
 def upgrade():
     op.create_table(
         "users",
-        sa.Column("id", sa.Integer, primary_key=True),  # its index is added in 0003, as it was missing in the real DB
+        sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("name", sa.String, nullable=False),
         sa.Column("email", sa.String, nullable=False, unique=True, index=True),
         sa.Column("hashed_password", sa.String, nullable=True),

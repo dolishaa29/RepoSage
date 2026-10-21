@@ -3,7 +3,6 @@ from langchain_core.prompts import PromptTemplate
 from ...core.llm import model
 from ...schemas.fix import FixResult
 
-# first try: fix ONE problem, return the whole file, and write a test in the repo's own language
 prompt = PromptTemplate(
     template="""You are a senior software engineer. Fix only this one problem in the file below.
 
@@ -27,7 +26,6 @@ File: {file}
     input_variables=["title", "line", "explanation", "suggestion", "file", "code"],
 )
 
-# retry: the AI sees its own code, its test and the real CI error, so it does not just guess again
 retry_prompt = PromptTemplate(
     template="""You are a senior software engineer. Your fix for "{title}" failed its tests.
 
@@ -47,7 +45,6 @@ Return the complete file, the complete test file and the test command.""",
     input_variables=["title", "file", "code", "test_file", "test_code", "test_command", "log"],
 )
 
-# structured output: the AI must answer as a FixResult, so we get clean fields instead of a chat reply
 structured_model = model.with_structured_output(FixResult)
 chain = prompt | structured_model
 retry_chain = retry_prompt | structured_model

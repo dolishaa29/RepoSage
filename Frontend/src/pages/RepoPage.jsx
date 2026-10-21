@@ -10,7 +10,6 @@ const SEVERITY = {
   low: { card: 'border-l-blue-500', badge: 'bg-blue-50 text-blue-600' },
 };
 
-// label + colour for each ci_status the backend sends
 const CI_STATUS = {
   running: { label: 'Tests running', badge: 'bg-amber-50 text-amber-600' },
   passed: { label: 'Tests passed', badge: 'bg-emerald-50 text-emerald-600' },
@@ -194,18 +193,14 @@ const ReviewResult = ({ review, repo, fixes, setFixes }) => (
   </div>
 );
 
-// "Fix with AI" box under each finding.
-// The fixes list lives in RepoPage (loaded from GET /fixes), so a fix is still shown after a refresh.
 const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
   const headers = { Authorization: `Bearer ${Cookies.get("token")}` };
 
-  // newest fix for this finding (fixes come newest first). A finding has no id, so we match on PR + file + title.
   const fix = fixes.find((x) => x.pr_number === prNumber && x.file === finding.file && x.title === finding.title);
 
-  // every fix endpoint returns the updated fix, so we swap it into the list and the UI moves to the next step
   const saveFix = (updated) => setFixes([updated, ...fixes.filter((x) => x.id !== updated.id)]);
 
   const send = async (url, body, fallback) => {
@@ -226,7 +221,6 @@ const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
   const reject = () => send(`/fixes/${fix.id}/reject`, {}, "Could not reject the fix. Please try again.");
   const checkTests = () => send(`/fixes/${fix.id}/check`, {}, "Could not check the tests. Please try again.");
 
-  // what is shown depends on the step: no fix / rejected → button, pending → review the code, approved → PR + tests
   if (fix?.status === "approved") {
     return (
       <div className="mt-4 flex flex-wrap items-center gap-3">

@@ -7,10 +7,6 @@ from ...schemas.review import Finding
 from ..github_service import call_github
 from .prompts import RULES, lead_chain, parallel_chain
 
-# 3 agents, plain LangChain:
-#   1. structure agent + security agent run together (parallel_chain)
-#   2. lead agent joins their findings into one review (lead_chain)
-
 
 def review_pr(db: Session, user: User, repo: str, pr_number: int):
     if user.github_token is None:
@@ -66,7 +62,6 @@ def make_diff(files):
     return diff
 
 
-# findings → plain text for the lead agent's prompt
 def to_text(findings: list[Finding]):
     text = ""
     for f in findings:

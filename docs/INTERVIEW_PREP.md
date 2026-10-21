@@ -21,4 +21,4 @@
 - **Why structured output:** the model must return a `ReviewResult` object (summary + findings), so the code never has to parse free text.
 - **Why a human approves fixes:** AI can be wrong, so the fix is opened as a PR on a new branch and is never merged automatically.
 
-The endpoint-by-endpoint list with doc links is in the README, under **GitHub API integration**.
+The endpoint-by-endpoint list with doc links is in [GITHUB_API.md](GITHUB_API.md).

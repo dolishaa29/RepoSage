@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routers import auth, fix, github, review
 
-# tables are created and changed by Alembic now: run "alembic upgrade head" (see migrations/)
 
 app = FastAPI()
 
