@@ -5,8 +5,8 @@ PASSWORD = "admin123"
 
 def get_user(name):
     db = sqlite3.connect("app.db")
-    query = f"SELECT * FROM users WHERE name = '{name}'"
-    return db.execute(query).fetchall()
+    query = "SELECT * FROM users WHERE name = ?"
+    return db.execute(query, (name,)).fetchall()
 
 
 def divide(a, b):
