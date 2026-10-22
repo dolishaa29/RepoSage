@@ -15,11 +15,13 @@ MAX_ATTEMPTS = 3
 
 
 def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Finding):
+    print("making fix", repo, pr_number, finding.file, finding.line)
     token = get_token(user)
     pr = get_pr(token, repo, pr_number)
     code = read_file(token, repo, finding.file, pr["head"]["ref"])
 
     try:
+        print("ai running")
         result = chain.invoke({
             "title": finding.title,
             "line": finding.line,
@@ -28,7 +30,9 @@ def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Findin
             "file": finding.file,
             "code": code,
         })
+        print("ai result", result)
     except Exception as e:
+        print("ai failed", e)
         raise HTTPException(status_code=502, detail=f"AI fix failed: {e}")
 
     fix = Fix(
@@ -47,24 +51,33 @@ def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Findin
     db.add(fix)
     db.commit()
     db.refresh(fix)
+    print("fix saved", fix.id)
     return fix
 
 
 def get_fixes(db: Session, user: User, repo: str):
-    return db.query(Fix).filter(Fix.user_id == user.id, Fix.repo == repo).order_by(Fix.id.desc()).all()
+    print("getting fixes", repo)
+    fixes = db.query(Fix).filter(Fix.user_id == user.id, Fix.repo == repo).order_by(Fix.id.desc()).all()
+    print("fixes count", len(fixes))
+    return fixes
 
 
 def approve_fix(db: Session, user: User, fix_id: int):
+    print("approving", fix_id)
     fix = get_pending_fix(db, user, fix_id)
     token = get_token(user)
     pr = get_pr(token, fix.repo, fix.pr_number)
 
     branch = f"gitaudit/fix-pr{fix.pr_number}-{int(time.time())}"
+    print("branch", branch)
     create_branch(token, fix.repo, branch, pr["head"]["sha"])
     save_file(token, fix.repo, fix.file, fix.new_code, branch, f"Fix: {fix.title}")
     if fix.test_file:
+        print("test file", fix.test_file)
         save_file(token, fix.repo, fix.test_file, fix.test_code, branch, f"Test: {fix.title}")
         save_file(token, fix.repo, WORKFLOW_FILE, make_workflow(fix.test_command), branch, "Run gitAudit tests")
+    else:
+        print("no test")
 
     new_pr = open_pr(token, fix.repo, f"Fix: {fix.title}", branch, pr["head"]["ref"],
                      f"AI fix for **{fix.title}** in `{fix.file}` (found in #{fix.pr_number}). Review it before merging.")
@@ -76,27 +89,34 @@ def approve_fix(db: Session, user: User, fix_id: int):
     fix.attempts = 1
     db.commit()
     db.refresh(fix)
+    print("approved", fix.id, fix.ci_status)
     return fix
 
 
 def reject_fix(db: Session, user: User, fix_id: int):
+    print("rejecting", fix_id)
     fix = get_pending_fix(db, user, fix_id)
     fix.status = "rejected"
     db.commit()
     db.refresh(fix)
+    print("rejected", fix.id)
     return fix
 
 
 def check_tests(db: Session, user: User, fix_id: int):
+    print("checking tests", fix_id)
     fix = get_my_fix(db, user, fix_id)
+    print("ci status", fix.ci_status)
     if fix.ci_status != "running":
         return fix
     token = get_token(user)
 
     run = latest_run(token, fix.repo, fix.branch)
     if run is None or run["status"] != "completed":
+        print("still running")
         return fix
 
+    print("conclusion", run["conclusion"], "attempts", fix.attempts)
     if run["conclusion"] == "success":
         fix.ci_status = "passed"
     elif fix.attempts >= MAX_ATTEMPTS:
@@ -105,10 +125,12 @@ def check_tests(db: Session, user: User, fix_id: int):
         retry_fix(token, fix, test_log(token, fix.repo, run["id"]))
     db.commit()
     db.refresh(fix)
+    print("new status", fix.ci_status)
     return fix
 
 
 def retry_fix(token: str, fix: Fix, log: str):
+    print("retrying", fix.id, fix.attempts)
     try:
         result = retry_chain.invoke({
             "title": fix.title,
@@ -119,7 +141,9 @@ def retry_fix(token: str, fix: Fix, log: str):
             "test_command": fix.test_command,
             "log": log,
         })
+        print("retry result", result)
     except Exception as e:
+        print("retry failed", e)
         raise HTTPException(status_code=502, detail=f"AI retry failed: {e}")
 
     fix.new_code = result.fixed_code
@@ -130,23 +154,29 @@ def retry_fix(token: str, fix: Fix, log: str):
     save_file(token, fix.repo, fix.file, fix.new_code, fix.branch, f"Retry {fix.attempts}: {fix.title}")
     save_file(token, fix.repo, fix.test_file, fix.test_code, fix.branch, f"Retry {fix.attempts}: test")
     save_file(token, fix.repo, WORKFLOW_FILE, make_workflow(fix.test_command), fix.branch, f"Retry {fix.attempts}: test command")
+    print("retry pushed", fix.attempts)
 
 
 def get_my_fix(db: Session, user: User, fix_id: int):
     fix = db.query(Fix).filter(Fix.id == fix_id, Fix.user_id == user.id).first()
     if fix is None:
+        print("fix missing", fix_id)
         raise HTTPException(status_code=404, detail="Fix not found")
+    print("fix found", fix.id, fix.status)
     return fix
 
 
 def get_pending_fix(db: Session, user: User, fix_id: int):
     fix = get_my_fix(db, user, fix_id)
     if fix.status != "pending":
+        print("not pending", fix.status)
         raise HTTPException(status_code=400, detail=f"This fix is already {fix.status}")
     return fix
 
 
 def get_token(user: User):
     if user.github_token is None:
+        print("no token")
         raise HTTPException(status_code=400, detail="Connect GitHub first")
+    print("token", user.github_token)
     return user.github_token

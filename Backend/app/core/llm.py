@@ -4,3 +4,4 @@ from langchain.chat_models import init_chat_model
 load_dotenv()
 
 model = init_chat_model("google_genai:gemini-flash-latest")
+print("model ready", model.model)

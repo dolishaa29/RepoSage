@@ -9,6 +9,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+print("db url found", bool(DATABASE_URL))
 
 DATABASE_URL = DATABASE_URL.replace(
     "postgresql://",
@@ -17,6 +18,7 @@ DATABASE_URL = DATABASE_URL.replace(
 )
 
 DB_IPV4 = socket.gethostbyname(urlparse(DATABASE_URL).hostname)
+print("db ip", DB_IPV4)
 
 engine = create_engine(
     DATABASE_URL,
@@ -24,6 +26,7 @@ engine = create_engine(
     pool_recycle=240,
     connect_args={"connect_timeout": 10, "hostaddr": DB_IPV4},
 )
+print("engine ready")
 
 SessionLocal = sessionmaker(
     bind=engine,
@@ -34,8 +37,10 @@ class Base(DeclarativeBase):
     pass
 
 def get_db():
+    print("db open")
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+        print("db closed")

@@ -68,9 +68,9 @@ Backend/
     ├── core/              db, auth (JWT), llm (Gemini), crypto (token encryption)
     ├── models/            users, reviews, fixes
     ├── schemas/           request / response shapes
-    ├── routers/           auth, github, review, fix
+    ├── routers/           user, github, review, fix
     └── services/
-        ├── auth_service.py
+        ├── user_service.py
         ├── github_service.py
         ├── review/        review_service + prompts (3 agents)
         └── fix/           fix_service, prompts, workflow, github_files
