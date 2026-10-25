@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Column, DateTime, ForeignKey, Integer, String, Text
 from ..core.db import Base
 
 class Fix(Base):
@@ -13,10 +13,8 @@ class Fix(Base):
     file = Column(String, nullable=False)
     title = Column(String, nullable=False)
     explanation = Column(Text, nullable=False)
-    old_code = Column(Text, nullable=False)                   
-    new_code = Column(Text, nullable=False)
-    test_file = Column(String, nullable=False)                
-    test_code = Column(Text, nullable=False)
+    changes = Column(JSON, nullable=False)
+    test_file = Column(String, nullable=False)
     test_command = Column(Text, nullable=False, default="")    
     status = Column(String, nullable=False, default="pending") 
     pr_url = Column(String, nullable=True)                     

@@ -16,8 +16,6 @@ COMMAND
 
 
 def make_workflow(test_command: str):
-    print("test command", test_command)
     command = "\n".join("          " + line for line in test_command.splitlines())
     workflow = TEMPLATE.replace("COMMAND", command)
-    print("workflow", workflow)
     return workflow

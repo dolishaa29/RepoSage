@@ -8,6 +8,8 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white)
 ![LangChain](https://img.shields.io/badge/LangChain-Gemini-1C3C3C?logo=langchain&logoColor=white)
+![LangGraph](https://img.shields.io/badge/LangGraph-agents-1C3C3C?logo=langchain&logoColor=white)
+![pgvector](https://img.shields.io/badge/pgvector-code_search-4169E1?logo=postgresql&logoColor=white)
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
 
@@ -15,8 +17,8 @@
 
 ## What it does
 
-1. **Review:** three AI agents review a pull request and report bugs, security problems and bad practices, each with severity, file, line and a suggested fix.
-2. **Fix:** for any finding, the AI writes the fix plus a unit test in the repo's own language.
+1. **Review:** AI agents with tools review a pull request and report bugs, security problems and bad practices, each with severity, file, line and a suggested fix. Big PRs are split into parts and reviewed in parallel.
+2. **Fix:** for any finding, an AI agent reads only the code it needs, edits it with small patches (also in other files that use the code) and writes a unit test in the repo's own language.
 3. **Approve:** after you approve, gitAudit opens a new PR with the fix and the test.
 4. **Test:** GitHub Actions runs the test. If it fails, the AI reads the error and tries again (max 3 times).
 
@@ -34,19 +36,36 @@ flowchart LR
     I -- passed --> K[Done]
 ```
 
-**Review: 3 LangChain agents**
+**Review: a LangGraph graph (map → reduce)**
 
 ```mermaid
 flowchart LR
-    D[PR diff] --> A[Structure agent<br/>bugs, logic]
-    D --> B[Security agent<br/>injection, secrets, auth]
-    A --> L[Lead agent<br/>merge, dedupe, summary]
-    B --> L
+    D[PR diff] --> S[Split into parts<br/>max 30k chars each]
+    S --> A1[Structure agent<br/>part 1] & B1[Security agent<br/>part 1]
+    S --> A2[Structure agent<br/>part 2] & B2[Security agent<br/>part 2]
+    A1 & B1 & A2 & B2 --> L[Lead<br/>merge, dedupe, summary]
 ```
 
-The structure and security agents run in parallel (`RunnableParallel`). Every agent uses structured output, so the result is always typed JSON, never free text.
+- The diff is split per file (and big files per piece). Lock files, minified and generated files are skipped. Max 6 parts; files that were not reviewed are named in the summary.
+- LangGraph `Send` starts one structure agent and one security agent per part, all in parallel. Their findings are added together in the graph state, then the lead merges them.
+- The agents have **read-only tools**, so they can look outside the diff (the full function, a helper, its callers).
 
-**Fix: on approve**, the fix branch `gitaudit/fix-pr<n>-<time>` gets three commits: the fixed file, the test, and `.github/workflows/gitaudit-tests.yml`. The workflow runs the AI's test command on `ubuntu-latest`, which already has Python, Node, Java, Go, Ruby, PHP, .NET and Rust, so it works for any language. Tests never run on the gitAudit server.
+**Agent tools** (`services/agent/tools.py`)
+
+| Tool | What it does | Used by |
+|---|---|---|
+| `read_file(path, start, end)` | reads only some lines (max 300), with line numbers. Works for huge files | review, fix |
+| `list_files(folder)` | files in a folder | review, fix |
+| `search_code(text)` | exact search with GitHub code search (default branch) | review, fix |
+| `semantic_search(question)` | search by meaning in the pgvector index | review, fix |
+| `edit_file(path, old, new)` | replaces one exact piece of text. Fails if it is not found or found twice | fix |
+| `create_file(path, content)` | new file only (the unit test) | fix |
+
+**Fix: a LangChain agent** (`create_agent`, runs on LangGraph). The agent never rewrites a whole file: it reads the lines it needs and changes them with `edit_file`, so a 10,000-line file is fine and nothing else in the file changes. One fix can change up to 6 files. Edits stay in memory until you approve, and the UI shows a diff per file.
+
+**On approve**, the fix branch `gitaudit/fix-pr<n>-<time>` gets **one commit** (Git Trees API) with every changed file, the test and `.github/workflows/gitaudit-tests.yml`. The workflow runs the AI's test command on `ubuntu-latest`, which already has Python, Node, Java, Go, Ruby, PHP, .NET and Rust, so it works for any language. Tests never run on the gitAudit server. If they fail, the same agent gets the log, reads the branch again and pushes a new commit.
+
+**Code index (pgvector):** "Index code for AI search" downloads the repo once (tarball), cuts code files into 60-line chunks, embeds them with `gemini-embedding-001` (768 numbers) and saves them in the `code_chunks` table. `semantic_search` embeds the question and returns the 5 closest chunks (cosine distance).
 
 ## Tech stack
 
@@ -54,7 +73,7 @@ The structure and security agents run in parallel (`RunnableParallel`). Every ag
 |---|---|
 | Backend | Python, FastAPI, SQLAlchemy, Alembic |
 | Database | PostgreSQL (Neon) |
-| AI | LangChain + Google Gemini |
+| AI | LangChain + LangGraph + Google Gemini, pgvector for code search |
 | Auth | JWT, Argon2 password hashing, Fernet-encrypted GitHub tokens |
 | Frontend | React 19, Vite, Tailwind CSS 4, React Router, Axios |
 
@@ -66,14 +85,15 @@ Backend/
 └── app/
     ├── main.py            app + routers
     ├── core/              db, auth (JWT), llm (Gemini), crypto (token encryption)
-    ├── models/            users, reviews, fixes
+    ├── models/            users, reviews, fixes, code_chunks
     ├── schemas/           request / response shapes
     ├── routers/           user, github, review, fix
     └── services/
         ├── user_service.py
         ├── github_service.py
-        ├── review/        review_service + prompts (3 agents)
-        └── fix/           fix_service, prompts, workflow, github_files
+        ├── agent/         tools (read, search, edit), code_index (pgvector)
+        ├── review/        review_service (split diff), graph (LangGraph), prompts (each agent next to its prompt)
+        └── fix/           fix_service, prompts (fix agent), workflow, github_files
 
 Frontend/src/
 ├── App.jsx                routes
@@ -85,6 +105,8 @@ Frontend/src/
 
 **1. GitHub OAuth App:** GitHub → Settings → Developer settings → OAuth Apps → New.
 Set Homepage URL and Authorization callback URL to `http://localhost:5174`, and leave "Expire user access tokens" unticked.
+
+The database needs the `vector` extension (Neon has it; migration `0004` turns it on).
 
 **2. Backend**
 
@@ -105,6 +127,7 @@ TOKEN_ENCRYPTION_KEY=<python -c "from cryptography.fernet import Fernet; print(F
 GITHUB_CLIENT_ID=<client id>
 GITHUB_CLIENT_SECRET=<client secret>
 GOOGLE_API_KEY=<gemini api key>
+GEMINI_MODEL=gemini-2.5-flash
 FRONTEND_URL=http://localhost:5174
 ```
 
@@ -135,6 +158,7 @@ API docs: http://localhost:8001/docs
 | `GET` | `/me` | current user |
 | `POST` | `/github/login`, `/github/connect` | GitHub OAuth |
 | `GET` | `/github/repos`, `/github/repos/{owner}/{name}/pulls` | repos and open PRs |
+| `POST` / `GET` | `/github/repos/{owner}/{name}/index` | index the code in pgvector / chunk count |
 | `POST` / `GET` | `/reviews` | review a PR / saved reviews |
 | `POST` / `GET` | `/fixes` | make a fix / saved fixes |
 | `POST` | `/fixes/{id}/approve`, `/reject`, `/check` | open PR / reject / check CI and retry |
@@ -146,6 +170,7 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - Passwords hashed with Argon2. GitHub tokens encrypted at rest with Fernet and never sent to the browser.
 - The OAuth `state` parameter is checked (CSRF).
 - AI fixes go to a new branch and a new PR, and are never merged automatically.
+- Agents treat repo code as untrusted. The edit tools cannot touch `.github/` or paths with `..`, and can change at most 6 files.
 
 ## Troubleshooting
 
@@ -155,13 +180,15 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 | `column ... does not exist` | `alembic upgrade head` |
 | `--reload` misses changes (Windows) | set `WATCHFILES_FORCE_POLLING=true` before `uvicorn` |
 | GitHub calls fail / Approve fails | Reconnect GitHub (the token needs the `repo` and `workflow` scopes) |
-| Gemini `429` | free-tier quota used up: wait or enable billing |
+| Gemini `429` | free tier allows ~5 calls per minute. Agents wait and retry 4 times; big PRs are slow on the free tier |
+| AI call hangs with no error | `gemini-flash-latest` sometimes never answers. Set `GEMINI_MODEL=gemini-2.5-flash` |
 
 ## Status
 
 - [x] Login (email + GitHub), repos, pull requests
-- [x] Multi-agent AI review
-- [x] Fix with AI → approve → PR
+- [x] Multi-agent AI review (LangGraph, tools, big PRs in parts)
+- [x] Fix agent with patch edits and multi-file fixes → approve → PR
+- [x] pgvector code index + semantic search
 - [x] Unit tests in GitHub Actions + AI retry (any language)
 - [x] Alembic migrations, encrypted GitHub tokens
 - [ ] **Deployment**

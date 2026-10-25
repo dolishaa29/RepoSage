@@ -30,6 +30,8 @@ const RepoPage = () => {
   const [reviews, setReviews] = useState([]);
   const [fixes, setFixes] = useState([]);
   const [reviewing, setReviewing] = useState(null);
+  const [chunks, setChunks] = useState(0);
+  const [indexing, setIndexing] = useState(false);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -45,14 +47,16 @@ const RepoPage = () => {
   useEffect(() => {
     const load = async () => {
       try {
-        const [p, r, f] = await Promise.all([
+        const [p, r, f, i] = await Promise.all([
           axios.get(`${API}/github/repos/${repo}/pulls`, authHeaders()),
           axios.get(`${API}/reviews`, { ...authHeaders(), params: { repo } }),
           axios.get(`${API}/fixes`, { ...authHeaders(), params: { repo } }),
+          axios.get(`${API}/github/repos/${repo}/index`, authHeaders()),
         ]);
         setPulls(p.data);
         setReviews(r.data);
         setFixes(f.data);
+        setChunks(i.data.chunks);
       } catch (err) {
         handleError(err, "Couldn't load pull requests.");
         setPulls([]);
@@ -74,10 +78,31 @@ const RepoPage = () => {
     }
   };
 
+  const indexRepo = async () => {
+    setError("");
+    setIndexing(true);
+    try {
+      const response = await axios.post(`${API}/github/repos/${repo}/index`, {}, authHeaders());
+      setChunks(response.data.chunks);
+    } catch (err) {
+      handleError(err, "Indexing failed.");
+    } finally {
+      setIndexing(false);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-10">
       <Link to="/dashboard" className="text-xs font-bold text-slate-400 hover:text-indigo-600">← Back</Link>
-      <h1 className="text-3xl font-bold mt-4 mb-8 break-all">{repo}</h1>
+      <h1 className="text-3xl font-bold mt-4 break-all">{repo}</h1>
+      <div className="mt-3 mb-8 flex flex-wrap items-center gap-3">
+        <button onClick={indexRepo} disabled={indexing} className={secondary}>
+          {indexing ? "Indexing code…" : chunks ? "Index code again" : "Index code for AI search"}
+        </button>
+        <span className="text-xs text-slate-400">
+          {chunks ? `${chunks} code chunks indexed, agents can search code by meaning` : "Not indexed, agents use exact search only"}
+        </span>
+      </div>
 
       {error && <p className="mb-6 p-4 bg-red-50 text-red-700 text-sm font-semibold rounded-2xl">{error}</p>}
       {pulls === null && <p className="text-slate-400">Loading pull requests...</p>}
@@ -178,11 +203,9 @@ const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
   return (
     <div className="mt-4 p-4 bg-white border border-slate-100 rounded-2xl space-y-3">
       <p className="text-sm text-slate-600">{fix.explanation}</p>
-      <div className="grid md:grid-cols-2 gap-3">
-        <Code label="Old code" code={fix.old_code} />
-        <Code label="New code" code={fix.new_code} />
-      </div>
-      {fix.test_file && <Code label={`Unit test · ${fix.test_file}`} code={fix.test_code} />}
+      {fix.changes.map((change) => (
+        <Diff key={change.file} label={change.file === fix.test_file ? `Unit test · ${change.file}` : change.file} diff={change.diff} />
+      ))}
       {fix.test_file && <Code label="CI will run" code={fix.test_command} />}
       <div className="flex gap-2">
         <button onClick={() => send(`/fixes/${fix.id}/approve`, {})} disabled={loading} className={primary}>
@@ -196,6 +219,24 @@ const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
     </div>
   );
 };
+
+const diffColor = (line) => {
+  if (line.startsWith("+")) return "text-emerald-400";
+  if (line.startsWith("-")) return "text-red-400";
+  if (line.startsWith("@@")) return "text-indigo-300";
+  return "text-slate-300";
+};
+
+const Diff = ({ label, diff }) => (
+  <div className="min-w-0">
+    <p className="text-xs font-bold text-slate-400 mb-1">{label}</p>
+    <pre className="max-h-96 overflow-auto bg-slate-900 text-xs rounded-xl p-3">
+      {diff.split("\n").map((line, i) => (
+        <div key={i} className={diffColor(line)}>{line || " "}</div>
+      ))}
+    </pre>
+  </div>
+);
 
 const Code = ({ label, code }) => (
   <div className="min-w-0">

@@ -19,3 +19,7 @@ class PullResponse(BaseModel):
     title: str
     author: str
     html_url: str
+
+
+class IndexResponse(BaseModel):
+    chunks: int

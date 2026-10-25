@@ -8,3 +8,5 @@ httpx
 langchain
 langchain-google-genai
 alembic
+langgraph
+pgvector

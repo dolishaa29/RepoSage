@@ -1,16 +1,26 @@
+import difflib
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from .review import Finding
 
 
 class FixResult(BaseModel):
-    fixed_code: str = Field(description="the complete file after the fix")
     explanation: str = Field(description="1-2 sentences about what was changed")
-    test_file: str = Field(description="repo-relative path of the unit test file, or empty if this file cannot have a unit test")
-    test_code: str = Field(description="the complete unit test file that checks the fix, or empty")
+    test_file: str = Field(description="repo-relative path of the unit test file you created, or empty")
     test_command: str = Field(description="shell command, run from the repo root on ubuntu-latest, that installs what is needed and runs only this test, or empty")
+
+
+class Change(BaseModel):
+    file: str
+    old_code: str
+    new_code: str
+
+    @computed_field
+    def diff(self) -> str:
+        lines = difflib.unified_diff(self.old_code.splitlines(), self.new_code.splitlines(), self.file, self.file, lineterm="")
+        return "\n".join(lines)
 
 
 class FixDto(BaseModel):
@@ -27,10 +37,8 @@ class FixResponse(BaseModel):
     file: str
     title: str
     explanation: str
-    old_code: str
-    new_code: str
+    changes: list[Change]
     test_file: str
-    test_code: str
     test_command: str
     status: str
     pr_url: str | None
