@@ -131,6 +131,8 @@ GEMINI_MODEL=gemini-2.5-flash
 FRONTEND_URL=http://localhost:5174
 ```
 
+`FRONTEND_URL` is the only origin CORS allows, and the GitHub callback sends users back to it. Set it to the real frontend URL when you deploy.
+
 **3. Frontend**
 
 ```bash
