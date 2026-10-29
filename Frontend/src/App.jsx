@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import RepoPage from './pages/RepoPage'
+import Repos from './pages/Repos'
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
 
         <Route element={<Userpri><UserLayout /></Userpri>}>
           <Route path='/dashboard' element={<Dashboard/>}/>
+          <Route path='/repos' element={<Repos/>}/>
           <Route path='/repo/:owner/:name' element={<RepoPage/>}/>
         </Route>
 

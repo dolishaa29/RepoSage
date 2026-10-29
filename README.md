@@ -26,6 +26,8 @@
 
 **Dashboard:** stat cards (PRs reviewed, findings, AI fixes, CI pass rate), a 14-day activity chart, findings by severity and type, fix status, top repos, recent activity and a searchable repo list.
 
+**Design:** responsive layout (sidebar on desktop, top bar + bottom tabs on phone) with a **light and dark theme**. The toggle is saved in the browser; the first visit follows the system setting.
+
 **Many GitHub accounts:** link more than one GitHub account (for example personal + work). Repos from all of them are shown together, and for every repo gitAudit uses the account that can open it.
 
 ## How it works
@@ -102,9 +104,11 @@ Backend/
 
 Frontend/src/
 ├── App.jsx                routes
-├── components/            UserLayout (navbar), Userpri (private route), GithubButton,
+├── index.css              theme colors (CSS variables for light and .dark)
+├── components/            UserLayout (sidebar + phone tabs), AuthLayout, Userpri (private route), GithubButton,
+│                          Logo, Icons, ThemeToggle,
 │                          dashboard parts: StatCard, BarList, ActivityChart, RecentActivity, GithubAccounts, RepoList
-└── pages/                 Login, Register, GithubCallback, Dashboard, RepoPage
+└── pages/                 Login, Register, GithubCallback, Dashboard, Repos, RepoPage
 ```
 
 ## Run locally
@@ -204,4 +208,5 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - [x] Alembic migrations, encrypted GitHub tokens
 - [x] Dashboard with stats and charts
 - [x] Many GitHub accounts per user
+- [x] New responsive design with light / dark theme
 - [ ] **Deployment**

@@ -1,25 +1,26 @@
 import GithubButton from './GithubButton';
 
+const AVATAR = ["bg-accent", "bg-teal"];
+
 // accounts: [{ id, username }]
 const GithubAccounts = ({ accounts, onRemove }) => {
   return (
-    <div className="p-5 bg-white border border-slate-100 rounded-2xl">
-      <h2 className="mb-4 font-bold text-slate-700">GitHub accounts</h2>
-      <div className="space-y-2 mb-4">
-        {accounts.map((account) => (
-          <div key={account.id} className="flex items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl">
-            <a href={`https://github.com/${account.username}`} target="_blank" rel="noreferrer" className="text-sm font-bold text-slate-800 break-all">
-              @{account.username}
-            </a>
-            <button onClick={() => onRemove(account)} className="text-xs font-bold text-red-500">Remove</button>
-          </div>
-        ))}
-        {accounts.length === 0 && <p className="text-sm text-slate-400">No account connected yet.</p>}
-      </div>
-      <GithubButton label={accounts.length === 0 ? "Connect GitHub" : "+ Add another account"} className="w-full" />
-      {accounts.length > 0 && (
-        <p className="mt-2 text-xs text-slate-400">GitHub will ask which account to use. To add a different one, pick it there or sign in to it on github.com first.</p>
-      )}
+    <div className="h-full p-5 bg-surface border border-line rounded-2xl flex flex-col gap-3">
+      <h2 className="font-display text-lg font-bold">GitHub accounts</h2>
+      {accounts.map((account, i) => (
+        <div key={account.id} className="flex items-center gap-3 px-3 py-2 rounded-xl bg-surface-2">
+          <span className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-bold text-on-accent ${AVATAR[i % 2]}`}>
+            {account.username[0].toUpperCase()}
+          </span>
+          <a href={`https://github.com/${account.username}`} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm font-semibold break-all">
+            @{account.username}
+          </a>
+          <button onClick={() => onRemove(account)} className="min-h-11 px-2 text-sm font-semibold text-high-text">Remove</button>
+        </div>
+      ))}
+      {accounts.length === 0 && <p className="text-sm text-muted">No account connected yet.</p>}
+      <GithubButton label={accounts.length === 0 ? "Connect GitHub" : "Add another account"} className="w-full" />
+      <p className="text-xs leading-relaxed text-muted">GitHub asks which account to link. Repos from every account show in one list.</p>
     </div>
   );
 };

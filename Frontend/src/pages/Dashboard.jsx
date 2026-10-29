@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import ActivityChart from '../components/ActivityChart';
 import BarList from '../components/BarList';
 import GithubAccounts from '../components/GithubAccounts';
+import { PlusIcon } from '../components/Icons';
 import RecentActivity from '../components/RecentActivity';
 import RepoList from '../components/RepoList';
 import StatCard from '../components/StatCard';
@@ -65,70 +66,61 @@ const Dashboard = () => {
     }
   };
 
-  if (!user || !stats) return <p className="p-10 text-center text-slate-400">{error || "Loading..."}</p>;
+  if (!user || !stats) return <p className="p-10 text-center text-muted">{error || "Loading..."}</p>;
 
   const ciDone = stats.ci_passed + stats.ci_failed;
   const passRate = ciDone === 0 ? "–" : `${Math.round((stats.ci_passed / ciDone) * 100)}%`;
+  const repoCount = new Set(stats.top_repos.map((r) => r.repo)).size;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-      <h1 className="text-3xl font-bold mb-1">Hello, <span className="text-indigo-600">{user.name}</span></h1>
-      <p className="text-sm text-slate-400 mb-8">{user.email}</p>
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 flex flex-col gap-6">
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl font-bold tracking-tight">Hello, {user.name}</h1>
+          <p className="mt-1 text-sm text-ink-2">Here is what the AI found and fixed in your pull requests.</p>
+        </div>
+        <Link to="/repos" className="h-11 px-5 flex items-center gap-2 rounded-xl bg-accent text-on-accent text-sm font-bold hover:opacity-90">
+          <PlusIcon size={16} /> Review a PR
+        </Link>
+      </header>
 
-      {error && <p className="mb-6 p-4 bg-red-50 text-red-700 text-sm font-semibold rounded-2xl">{error}</p>}
+      {error && <p className="p-4 bg-high-soft text-high-text text-sm font-semibold rounded-2xl">{error}</p>}
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="PRs reviewed" value={stats.reviews} />
-        <StatCard label="Findings" value={stats.findings} note={`${stats.severity.high} high severity`} />
-        <StatCard label="AI fixes" value={stats.fixes} note={`${stats.prs_opened} fix PRs opened`} />
-        <StatCard label="CI pass rate" value={passRate} note={`${stats.ci_passed} passed · ${stats.ci_failed} failed`} />
-      </div>
+      <section aria-label="Totals" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="PRs reviewed" value={stats.reviews} note={`across ${repoCount} repos`} dot="bg-accent" />
+        <StatCard label="Findings" value={stats.findings} note={`${stats.severity.high} high severity`} dot="bg-high" />
+        <StatCard label="AI fixes" value={stats.fixes} note={`${stats.prs_opened} fix PRs opened`} dot="bg-teal" />
+        <StatCard label="CI pass rate" value={passRate} note={`${stats.ci_passed} passed · ${stats.ci_failed} failed`} dot="bg-ok-text" />
+      </section>
 
-      <div className="grid lg:grid-cols-3 gap-4 mb-6">
-        <div className="lg:col-span-2">
+      <section className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 min-w-0">
           <ActivityChart days={stats.last_14_days} />
         </div>
         <BarList
           title="Findings by severity"
           rows={[
-            { label: "High", value: stats.severity.high, color: "#dc2626" },
-            { label: "Medium", value: stats.severity.medium, color: "#d97706" },
-            { label: "Low", value: stats.severity.low, color: "#78716c" },
+            { label: "High", value: stats.severity.high, color: "bg-high" },
+            { label: "Medium", value: stats.severity.medium, color: "bg-med" },
+            { label: "Low", value: stats.severity.low, color: "bg-low" },
           ]}
-        />
-      </div>
+        >
+          <div className="flex flex-wrap gap-2">
+            <span className="px-2.5 py-1.5 rounded-full bg-surface-2 text-xs font-semibold text-ink-2">Security {stats.category.security}</span>
+            <span className="px-2.5 py-1.5 rounded-full bg-surface-2 text-xs font-semibold text-ink-2">Bug {stats.category.bug}</span>
+            <span className="px-2.5 py-1.5 rounded-full bg-surface-2 text-xs font-semibold text-ink-2">Bad practice {stats.category.bad_practice}</span>
+          </div>
+        </BarList>
+      </section>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-6">
-        <BarList
-          title="Findings by type"
-          rows={[
-            { label: "Security", value: stats.category.security, color: "#5f7f1f" },
-            { label: "Bug", value: stats.category.bug, color: "#5f7f1f" },
-            { label: "Bad practice", value: stats.category.bad_practice, color: "#5f7f1f" },
-          ]}
-        />
-        <BarList
-          title="Fix status"
-          rows={[
-            { label: "Approved", value: stats.fix_status.approved, color: "#3b6fd8" },
-            { label: "Pending", value: stats.fix_status.pending, color: "#3b6fd8" },
-            { label: "Rejected", value: stats.fix_status.rejected, color: "#3b6fd8" },
-          ]}
-        />
-        <BarList
-          title="Top repos by findings"
-          rows={stats.top_repos.map((r) => ({ label: r.repo, value: r.findings, color: "#5f7f1f" }))}
-        />
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-4 mb-10">
-        <div className="lg:col-span-2">
+      <section className="grid lg:grid-cols-3 gap-4">
+        <div className="lg:col-span-2 min-w-0">
           <RecentActivity items={stats.recent} />
         </div>
         <GithubAccounts accounts={user.github_accounts} onRemove={removeAccount} />
-      </div>
+      </section>
 
-      {user.github_accounts.length > 0 && <RepoList repos={repos} showAccount={user.github_accounts.length > 1} />}
+      {user.github_accounts.length > 0 && <RepoList repos={repos} showAccount={user.github_accounts.length > 1} limit={6} />}
     </div>
   );
 };
