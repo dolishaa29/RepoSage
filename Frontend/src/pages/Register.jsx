@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import AuthLayout from '../components/AuthLayout';
 import GithubButton from '../components/GithubButton';
 
-const input = "w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400";
+const input = "w-full min-h-12 px-4 bg-surface text-ink border border-line rounded-xl focus:outline-none focus:border-accent";
+const label = "flex flex-col gap-1.5 text-sm font-semibold";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -29,28 +31,35 @@ const Register = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4">
-      <div className="w-full max-w-sm p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
-        <h1 className="text-3xl font-black text-center mb-8">git<span className="text-indigo-600">Audit</span></h1>
-
-        <form onSubmit={handleRegister} className="space-y-4">
-          <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required className={input} />
-          <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required className={input} />
-          <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className={input} />
-          <button disabled={loading} className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl disabled:opacity-50">
-            {loading ? "Please wait..." : "Create Account"}
-          </button>
-        </form>
-
-        <p className="text-center text-xs text-slate-400 my-4">or</p>
-        <GithubButton label="Continue with GitHub" className="w-full" />
-
-        <p className="text-center text-sm text-slate-500 mt-6">
-          Have an account? <Link to="/login" className="text-indigo-600 font-semibold">Log in</Link>
-        </p>
-        {message && <p className="text-center text-sm mt-4 font-bold text-red-600">{message}</p>}
+    <AuthLayout>
+      <div>
+        <h2 className="font-display text-3xl font-bold tracking-tight">Create your account</h2>
+        <p className="mt-1 text-sm text-ink-2">Start reviewing pull requests with AI.</p>
       </div>
-    </div>
+
+      <GithubButton label="Continue with GitHub" className="w-full" />
+      <div className="flex items-center gap-3 text-xs text-muted"><span className="flex-1 h-px bg-line" />or with email<span className="flex-1 h-px bg-line" /></div>
+
+      <form onSubmit={handleRegister} className="flex flex-col gap-4">
+        <label className={label}>Name
+          <input placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required className={input} />
+        </label>
+        <label className={label}>Email
+          <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className={input} />
+        </label>
+        <label className={label}>Password
+          <input type="password" placeholder="At least 6 characters" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className={input} />
+        </label>
+        <button disabled={loading} className="min-h-12 bg-accent text-on-accent hover:opacity-90 font-bold rounded-xl disabled:opacity-50">
+          {loading ? "Please wait..." : "Create account"}
+        </button>
+      </form>
+
+      {message && <p className="p-3 rounded-xl bg-high-soft text-high-text text-sm font-semibold">{message}</p>}
+      <p className="text-center text-sm text-ink-2">
+        Have an account? <Link to="/login" className="text-accent-text font-bold">Sign in</Link>
+      </p>
+    </AuthLayout>
   );
 };
 

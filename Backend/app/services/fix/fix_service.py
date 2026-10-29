@@ -5,6 +5,7 @@ from ...models.fix import Fix
 from ...models.user import User
 from ...schemas.review import Finding
 from ..agent.tools import Context
+from ..github_service import get_token
 from .github_files import branch_sha, commit_files, create_branch, delete_branch, get_pr, latest_run, open_pr, test_log
 from .prompts import fix_agent, fix_prompt, retry_prompt
 from .workflow import WORKFLOW_FILE, make_workflow
@@ -15,7 +16,7 @@ MAX_STEPS = 40
 
 
 def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Finding):
-    token = get_token(user)
+    token = get_token(user, repo)
     pr = get_pr(token, repo, pr_number)
     context = Context(token=token, repo=repo, ref=pr["head"]["sha"])
 
@@ -67,7 +68,7 @@ def get_fixes(db: Session, user: User, repo: str):
 
 def approve_fix(db: Session, user: User, fix_id: int):
     fix = get_pending_fix(db, user, fix_id)
-    token = get_token(user)
+    token = get_token(user, fix.repo)
     pr = get_pr(token, fix.repo, fix.pr_number)
 
     branch = f"gitaudit/fix-pr{fix.pr_number}-{int(time.time())}"
@@ -105,7 +106,7 @@ def check_tests(db: Session, user: User, fix_id: int):
     fix = get_my_fix(db, user, fix_id)
     if fix.ci_status != "running":
         return fix
-    token = get_token(user)
+    token = get_token(user, fix.repo)
 
     run = latest_run(token, fix.repo, fix.branch)
     if run is None or run["status"] != "completed":
@@ -165,10 +166,3 @@ def get_pending_fix(db: Session, user: User, fix_id: int):
     if fix.status != "pending":
         raise HTTPException(status_code=400, detail=f"This fix is already {fix.status}")
     return fix
-
-
-
-def get_token(user: User):
-    if user.github_token is None:
-        raise HTTPException(status_code=400, detail="Connect GitHub first")
-    return user.github_token

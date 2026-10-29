@@ -1,78 +1,134 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
-import GithubButton from '../components/GithubButton';
+import ActivityChart from '../components/ActivityChart';
+import BarList from '../components/BarList';
+import GithubAccounts from '../components/GithubAccounts';
+import RecentActivity from '../components/RecentActivity';
+import RepoList from '../components/RepoList';
+import StatCard from '../components/StatCard';
+
+const API = import.meta.env.VITE_API_URL;
+const authHeaders = () => ({ headers: { Authorization: `Bearer ${Cookies.get("token")}` } });
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
+  const [stats, setStats] = useState(null);
   const [repos, setRepos] = useState([]);
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const headers = { Authorization: `Bearer ${Cookies.get("token")}` };
+  const handleError = (err, fallback) => {
+    if (err.response?.status === 401) {
+      Cookies.remove("token");
+      navigate("/login");
+      return;
+    }
+    setError(err.response?.data?.detail || fallback);
+  };
 
+  const loadRepos = async (accounts) => {
+    if (accounts.length === 0) {
+      setRepos([]);
+      return;
+    }
+    const response = await axios.get(`${API}/github/repos`, authHeaders());
+    setRepos(response.data);
+  };
+
+  useEffect(() => {
     const load = async () => {
       try {
-        const me = await axios.get(import.meta.env.VITE_API_URL + "/me", { headers });
+        const [me, s] = await Promise.all([
+          axios.get(`${API}/me`, authHeaders()),
+          axios.get(`${API}/stats`, authHeaders()),
+        ]);
         setUser(me.data);
-        if (me.data.github_username) {
-          const response = await axios.get(import.meta.env.VITE_API_URL + "/github/repos", { headers });
-          setRepos(response.data);
-        }
+        setStats(s.data);
+        await loadRepos(me.data.github_accounts);
       } catch (err) {
-        if (err.response?.status === 401) {
-          Cookies.remove("token");
-          navigate("/login");
-          return;
-        }
-        setError(err.response?.data?.detail || "Couldn't load your dashboard.");
+        handleError(err, "Couldn't load your dashboard.");
       }
     };
     load();
-  }, [navigate]);
+  }, []);
 
-  if (!user) return <p className="p-10 text-center text-slate-400">{error || "Loading..."}</p>;
+  const removeAccount = async (account) => {
+    if (!confirm(`Remove @${account.username} from gitAudit?`)) return;
+    try {
+      const response = await axios.delete(`${API}/github/accounts/${account.id}`, authHeaders());
+      setUser(response.data);
+      await loadRepos(response.data.github_accounts);
+    } catch (err) {
+      handleError(err, "Couldn't remove the account.");
+    }
+  };
+
+  if (!user || !stats) return <p className="p-10 text-center text-slate-400">{error || "Loading..."}</p>;
+
+  const ciDone = stats.ci_passed + stats.ci_failed;
+  const passRate = ciDone === 0 ? "–" : `${Math.round((stats.ci_passed / ciDone) * 100)}%`;
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-10">
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10">
       <h1 className="text-3xl font-bold mb-1">Hello, <span className="text-indigo-600">{user.name}</span></h1>
-      <p className="text-sm text-slate-400 mb-8">
-        {user.email} · GitHub: {user.github_username ? `@${user.github_username}` : "not connected"}
-      </p>
+      <p className="text-sm text-slate-400 mb-8">{user.email}</p>
 
       {error && <p className="mb-6 p-4 bg-red-50 text-red-700 text-sm font-semibold rounded-2xl">{error}</p>}
 
-      {!user.github_username ? (
-        <div className="p-10 bg-white border border-slate-100 rounded-3xl text-center">
-          <p className="text-slate-500 mb-6">Connect GitHub to see your repositories.</p>
-          <GithubButton label="Connect GitHub" className="mx-auto" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard label="PRs reviewed" value={stats.reviews} />
+        <StatCard label="Findings" value={stats.findings} note={`${stats.severity.high} high severity`} />
+        <StatCard label="AI fixes" value={stats.fixes} note={`${stats.prs_opened} fix PRs opened`} />
+        <StatCard label="CI pass rate" value={passRate} note={`${stats.ci_passed} passed · ${stats.ci_failed} failed`} />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-4 mb-6">
+        <div className="lg:col-span-2">
+          <ActivityChart days={stats.last_14_days} />
         </div>
-      ) : (
-        <>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold text-slate-700">Your repositories</h2>
-            <GithubButton label="Reconnect GitHub" />
-          </div>
-          <div className="space-y-3">
-            {repos.map((r) => (
-              <Link
-                key={r.id}
-                to={`/repo/${r.full_name}`}
-                className="flex items-center justify-between gap-4 p-5 bg-white border border-slate-100 rounded-2xl hover:border-indigo-300"
-              >
-                <div className="min-w-0">
-                  <p className="font-bold text-slate-800 break-all">{r.full_name}</p>
-                  {r.description && <p className="text-xs text-slate-400 truncate">{r.description}</p>}
-                </div>
-                <span className="shrink-0 text-xs text-slate-400">{r.language} · {r.private ? "Private" : "Public"}</span>
-              </Link>
-            ))}
-            {repos.length === 0 && <p className="text-slate-400">No repositories found.</p>}
-          </div>
-        </>
-      )}
+        <BarList
+          title="Findings by severity"
+          rows={[
+            { label: "High", value: stats.severity.high, color: "#dc2626" },
+            { label: "Medium", value: stats.severity.medium, color: "#d97706" },
+            { label: "Low", value: stats.severity.low, color: "#78716c" },
+          ]}
+        />
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4 mb-6">
+        <BarList
+          title="Findings by type"
+          rows={[
+            { label: "Security", value: stats.category.security, color: "#5f7f1f" },
+            { label: "Bug", value: stats.category.bug, color: "#5f7f1f" },
+            { label: "Bad practice", value: stats.category.bad_practice, color: "#5f7f1f" },
+          ]}
+        />
+        <BarList
+          title="Fix status"
+          rows={[
+            { label: "Approved", value: stats.fix_status.approved, color: "#3b6fd8" },
+            { label: "Pending", value: stats.fix_status.pending, color: "#3b6fd8" },
+            { label: "Rejected", value: stats.fix_status.rejected, color: "#3b6fd8" },
+          ]}
+        />
+        <BarList
+          title="Top repos by findings"
+          rows={stats.top_repos.map((r) => ({ label: r.repo, value: r.findings, color: "#5f7f1f" }))}
+        />
+      </div>
+
+      <div className="grid lg:grid-cols-3 gap-4 mb-10">
+        <div className="lg:col-span-2">
+          <RecentActivity items={stats.recent} />
+        </div>
+        <GithubAccounts accounts={user.github_accounts} onRemove={removeAccount} />
+      </div>
+
+      {user.github_accounts.length > 0 && <RepoList repos={repos} showAccount={user.github_accounts.length > 1} />}
     </div>
   );
 };

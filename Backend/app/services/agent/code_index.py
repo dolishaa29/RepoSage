@@ -8,7 +8,7 @@ from ...core.db import SessionLocal
 from ...core.llm import embeddings
 from ...models.code_chunk import CodeChunk
 from ...models.user import User
-from ..github_service import call_github, get_github_bytes
+from ..github_service import get_github_bytes, get_token
 
 CODE_EXTENSIONS = (".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".kt", ".go", ".rb", ".php", ".cs", ".rs",
                    ".c", ".h", ".cpp", ".hpp", ".swift", ".scala", ".sql", ".vue", ".svelte", ".sh")
@@ -21,10 +21,8 @@ SEARCH_RESULTS = 5
 
 
 def index_repo(db: Session, user: User, repo: str):
-    if user.github_token is None:
-        raise HTTPException(status_code=400, detail="Connect GitHub first")
-
-    repo_bytes = get_github_bytes(user.github_token, f"/repos/{repo}/tarball", MAX_DOWNLOAD_SIZE)
+    token = get_token(user, repo)
+    repo_bytes = get_github_bytes(token, f"/repos/{repo}/tarball", MAX_DOWNLOAD_SIZE)
     archive = tarfile.open(fileobj=io.BytesIO(repo_bytes), mode="r:gz")
 
     chunks = []
@@ -96,9 +94,7 @@ def add_embeddings(chunks: list[CodeChunk]):
 
 
 def count_chunks(db: Session, user: User, repo: str):
-    if user.github_token is None:
-        raise HTTPException(status_code=400, detail="Connect GitHub first")
-    call_github(user.github_token, f"/repos/{repo}")
+    get_token(user, repo)
 
     count = db.query(CodeChunk).filter(CodeChunk.repo == repo).count()
     return count

@@ -13,6 +13,7 @@ class RepoResponse(BaseModel):
     description: str | None
     html_url: str
     updated_at: str
+    account: str
 
 class PullResponse(BaseModel):
     number: int

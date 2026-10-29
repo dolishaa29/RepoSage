@@ -1,3 +1,5 @@
+import { GithubIcon } from './Icons';
+
 const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID;
 
 const GithubButton = ({ label, className = '' }) => {
@@ -5,11 +7,12 @@ const GithubButton = ({ label, className = '' }) => {
     const state = crypto.randomUUID();
     sessionStorage.setItem('github_state', state);
     window.location.href =
-      `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo%20workflow%20user:email&state=${state}`;
+      `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=repo%20workflow%20user:email&prompt=select_account&state=${state}`;
   };
 
   return (
-    <button type="button" onClick={goToGithub} className={`block py-3 px-5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl ${className}`}>
+    <button type="button" onClick={goToGithub} className={`min-h-12 px-5 flex items-center justify-center gap-2.5 bg-invert text-on-invert hover:opacity-90 text-sm font-bold rounded-xl ${className}`}>
+      <GithubIcon />
       {label}
     </button>
   );

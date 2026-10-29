@@ -39,9 +39,9 @@ const GithubCallback = () => {
   }, [navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-slate-50 text-sm">
-      <p className="font-bold text-slate-500">{message}</p>
-      <Link to="/login" className="text-indigo-600 font-semibold">Back to login</Link>
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-bg text-ink text-sm">
+      <p className="font-bold text-ink-2">{message}</p>
+      <Link to="/login" className="text-accent-text font-semibold">Back to login</Link>
     </div>
   );
 };

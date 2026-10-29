@@ -33,6 +33,11 @@ def github_connect(data: GithubCodeDto, user: User = Depends(auth), db: Session 
     return github_service.connect(db, user, data.code)
 
 
+@router.delete("/accounts/{account_id}", response_model=UserResponse)
+def remove_account(account_id: int, user: User = Depends(auth), db: Session = Depends(get_db)):
+    return github_service.remove_account(db, user, account_id)
+
+
 @router.get("/repos", response_model=list[RepoResponse])
 def repos(user: User = Depends(auth)):
     return github_service.get_repos(user)

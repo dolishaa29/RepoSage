@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ...models.review import Review
 from ...models.user import User
 from ..agent.tools import Context
-from ..github_service import call_github
+from ..github_service import call_github, get_token
 from .graph import review_graph
 
 SKIP_FILES = ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Cargo.lock", "go.sum",
@@ -14,16 +14,14 @@ MAX_CHUNKS = 6
 
 
 def review_pr(db: Session, user: User, repo: str, pr_number: int):
-    if user.github_token is None:
-        raise HTTPException(status_code=400, detail="Connect GitHub first")
-
-    pr = call_github(user.github_token, f"/repos/{repo}/pulls/{pr_number}")
-    files = call_github(user.github_token, f"/repos/{repo}/pulls/{pr_number}/files?per_page=100")
+    token = get_token(user, repo)
+    pr = call_github(token, f"/repos/{repo}/pulls/{pr_number}")
+    files = call_github(token, f"/repos/{repo}/pulls/{pr_number}/files?per_page=100")
     chunks, skipped = make_chunks(files)
     if len(chunks) == 0:
         raise HTTPException(status_code=400, detail="This pull request has no code changes to review")
 
-    context = Context(token=user.github_token, repo=repo, ref=pr["head"]["sha"])
+    context = Context(token=token, repo=repo, ref=pr["head"]["sha"])
     try:
         state = review_graph.invoke({
             "title": pr["title"],

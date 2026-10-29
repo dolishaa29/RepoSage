@@ -3,6 +3,7 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from ..core.auth import create_token
+from ..models.github_account import GithubAccount
 from ..models.user import User
 
 CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
@@ -13,44 +14,69 @@ def login(db: Session, code: str):
     token = get_github_token(code)
     github_user = call_github(token, "/user")
 
-    user = db.query(User).filter(User.github_id == github_user["id"]).first()
-    if user is None:
+    account = find_account(db, github_user["id"])
+    if account is None:
         email = get_email(token)
         if db.query(User).filter(User.email == email).first():
             raise HTTPException(status_code=400, detail="Email already registered. Log in with your password, then connect GitHub")
         user = User(name=github_user["name"] or github_user["login"], email=email)
         db.add(user)
+        db.flush()
+        user_id = user.id
+    else:
+        user_id = account.user_id
 
-    save_github(user, github_user, token)
+    save_account(db, user_id, github_user, token)
     db.commit()
-    return create_token(user.id)
+    return create_token(user_id)
 
 
 def connect(db: Session, user: User, code: str):
     token = get_github_token(code)
     github_user = call_github(token, "/user")
 
-    other = db.query(User).filter(User.github_id == github_user["id"], User.id != user.id).first()
-    if other:
+    account = find_account(db, github_user["id"])
+    if account and account.user_id != user.id:
         raise HTTPException(status_code=400, detail="This GitHub account is linked to another user")
 
-    save_github(user, github_user, token)
+    save_account(db, user.id, github_user, token)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def remove_account(db: Session, user: User, account_id: int):
+    account = db.query(GithubAccount).filter(GithubAccount.id == account_id, GithubAccount.user_id == user.id).first()
+    if account is None:
+        raise HTTPException(status_code=404, detail="GitHub account not found")
+    db.delete(account)
     db.commit()
     db.refresh(user)
     return user
 
 
 def get_repos(user: User):
-    if user.github_token is None:
+    if len(user.github_accounts) == 0:
         raise HTTPException(status_code=400, detail="Connect GitHub first")
-    repos = call_github(user.github_token, "/user/repos?sort=updated")
-    return repos
+
+    result = []
+    seen = set()
+    for account in user.github_accounts:
+        repos = call_github(account.token, "/user/repos?sort=updated&per_page=100")
+        for repo in repos:
+            if repo["id"] in seen:
+                continue
+            seen.add(repo["id"])
+            repo["account"] = account.username
+            result.append(repo)
+
+    result.sort(key=lambda repo: repo["updated_at"], reverse=True)
+    return result
 
 
 def get_pulls(user: User, repo: str):
-    if user.github_token is None:
-        raise HTTPException(status_code=400, detail="Connect GitHub first")
-    pulls = call_github(user.github_token, f"/repos/{repo}/pulls")
+    token = get_token(user, repo)
+    pulls = call_github(token, f"/repos/{repo}/pulls")
     result = []
     for p in pulls:
         pull = {
@@ -63,10 +89,35 @@ def get_pulls(user: User, repo: str):
     return result
 
 
-def save_github(user: User, github_user: dict, token: str):
-    user.github_id = github_user["id"]
-    user.github_username = github_user["login"]
-    user.github_token = token
+# picks the linked account that can open this repo
+def get_token(user: User, repo: str):
+    if len(user.github_accounts) == 0:
+        raise HTTPException(status_code=400, detail="Connect GitHub first")
+
+    owner = repo.split("/")[0].lower()
+    for account in user.github_accounts:
+        if account.username.lower() == owner:
+            return account.token
+
+    for account in user.github_accounts:
+        res = httpx.get(f"https://api.github.com/repos/{repo}", headers={"Authorization": f"Bearer {account.token}"})
+        if res.status_code == 200:
+            return account.token
+
+    raise HTTPException(status_code=400, detail="None of your GitHub accounts can open this repo")
+
+
+def find_account(db: Session, github_id: int):
+    return db.query(GithubAccount).filter(GithubAccount.github_id == github_id).first()
+
+
+def save_account(db: Session, user_id: int, github_user: dict, token: str):
+    account = find_account(db, github_user["id"])
+    if account is None:
+        account = GithubAccount(user_id=user_id, github_id=github_user["id"])
+        db.add(account)
+    account.username = github_user["login"]
+    account.token = token
 
 
 def get_github_token(code: str):

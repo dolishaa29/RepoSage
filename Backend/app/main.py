@@ -2,7 +2,7 @@ import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routers import fix, github, review, user
+from .routers import fix, github, review, stats, user
 
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5174")
 
@@ -19,3 +19,4 @@ app.include_router(user.router)
 app.include_router(github.router)
 app.include_router(review.router)
 app.include_router(fix.router)
+app.include_router(stats.router)

@@ -24,6 +24,10 @@
 
 **Nothing is merged automatically.** A person always decides.
 
+**Dashboard:** stat cards (PRs reviewed, findings, AI fixes, CI pass rate), a 14-day activity chart, findings by severity and type, fix status, top repos, recent activity and a searchable repo list.
+
+**Many GitHub accounts:** link more than one GitHub account (for example personal + work). Repos from all of them are shown together, and for every repo gitAudit uses the account that can open it.
+
 ## How it works
 
 ```mermaid
@@ -85,19 +89,21 @@ Backend/
 └── app/
     ├── main.py            app + routers
     ├── core/              db, auth (JWT), llm (Gemini), crypto (token encryption)
-    ├── models/            users, reviews, fixes, code_chunks
+    ├── models/            users, github_accounts, reviews, fixes, code_chunks
     ├── schemas/           request / response shapes
-    ├── routers/           user, github, review, fix
+    ├── routers/           user, github, review, fix, stats
     └── services/
         ├── user_service.py
-        ├── github_service.py
+        ├── github_service.py   GitHub OAuth, accounts, get_token(user, repo)
+        ├── stats_service.py    numbers for the dashboard
         ├── agent/         tools (read, search, edit), code_index (pgvector)
         ├── review/        review_service (split diff), graph (LangGraph), prompts (each agent next to its prompt)
         └── fix/           fix_service, prompts (fix agent), workflow, github_files
 
 Frontend/src/
 ├── App.jsx                routes
-├── components/            UserLayout (navbar), Userpri (private route), GithubButton
+├── components/            UserLayout (navbar), Userpri (private route), GithubButton,
+│                          dashboard parts: StatCard, BarList, ActivityChart, RecentActivity, GithubAccounts, RepoList
 └── pages/                 Login, Register, GithubCallback, Dashboard, RepoPage
 ```
 
@@ -157,9 +163,11 @@ API docs: http://localhost:8001/docs
 | Method | Endpoint | What it does |
 |---|---|---|
 | `POST` | `/register`, `/login` | account, returns a JWT |
-| `GET` | `/me` | current user |
-| `POST` | `/github/login`, `/github/connect` | GitHub OAuth |
-| `GET` | `/github/repos`, `/github/repos/{owner}/{name}/pulls` | repos and open PRs |
+| `GET` | `/me` | current user with linked GitHub accounts |
+| `GET` | `/stats` | dashboard numbers |
+| `POST` | `/github/login`, `/github/connect` | GitHub OAuth (connect adds another account) |
+| `DELETE` | `/github/accounts/{id}` | remove a linked GitHub account |
+| `GET` | `/github/repos`, `/github/repos/{owner}/{name}/pulls` | repos of all linked accounts and open PRs |
 | `POST` / `GET` | `/github/repos/{owner}/{name}/index` | index the code in pgvector / chunk count |
 | `POST` / `GET` | `/reviews` | review a PR / saved reviews |
 | `POST` / `GET` | `/fixes` | make a fix / saved fixes |
@@ -182,6 +190,7 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 | `column ... does not exist` | `alembic upgrade head` |
 | `--reload` misses changes (Windows) | set `WATCHFILES_FORCE_POLLING=true` before `uvicorn` |
 | GitHub calls fail / Approve fails | Reconnect GitHub (the token needs the `repo` and `workflow` scopes) |
+| "Add another account" links the same account again | GitHub shows an account picker; if the other account is not listed, sign in to it on github.com first |
 | Gemini `429` | free tier allows ~5 calls per minute. Agents wait and retry 4 times; big PRs are slow on the free tier |
 | AI call hangs with no error | `gemini-flash-latest` sometimes never answers. Set `GEMINI_MODEL=gemini-2.5-flash` |
 
@@ -193,4 +202,6 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - [x] pgvector code index + semantic search
 - [x] Unit tests in GitHub Actions + AI retry (any language)
 - [x] Alembic migrations, encrypted GitHub tokens
+- [x] Dashboard with stats and charts
+- [x] Many GitHub accounts per user
 - [ ] **Deployment**
