@@ -91,20 +91,24 @@ Backend/
 └── app/
     ├── main.py            app + routers
     ├── core/              db, auth (JWT), llm (Gemini), crypto (token encryption)
-    ├── models/            users, github_accounts, reviews, fixes, code_chunks, notifications
+    ├── models/            users, github_accounts, reviews, fixes, code_chunks, notifications, seen_items, jobs
     ├── schemas/           request / response shapes
-    ├── routers/           user, github, review, fix, stats, notification
+    ├── routers/           user, github, review, fix, stats, notification, job, webhook
     └── services/
         ├── user_service.py
         ├── github_service.py   GitHub OAuth, accounts, get_token(user, repo)
         ├── stats_service.py    numbers for the dashboard
         ├── notification_service.py   save and read notifications
+        ├── job_service.py      background jobs
+        ├── sync_service.py     looks for new repos, PRs and test results
+        ├── webhook_service.py  GitHub events
         ├── agent/         tools (read, search, edit), code_index (pgvector)
         ├── review/        review_service (split diff), graph (LangGraph), prompts (each agent next to its prompt)
         └── fix/           fix_service, prompts (fix agent), workflow, github_files
 
 Frontend/src/
 ├── App.jsx                routes
+├── jobs.js                waits for a background job
 ├── index.css              theme colors (CSS variables for light and .dark)
 ├── components/            UserLayout (sidebar + phone tabs), AuthLayout, Userpri (private route), GithubButton,
 │                          Logo, Icons, ThemeToggle, NotificationBell,
@@ -140,7 +144,12 @@ GITHUB_CLIENT_SECRET=<client secret>
 GOOGLE_API_KEY=<gemini api key>
 GEMINI_MODEL=gemini-2.5-flash
 FRONTEND_URL=http://localhost:5174
+SYNC_EVERY_MINUTES=3
+GITHUB_WEBHOOK_SECRET=<only for the webhook>
+CRON_SECRET=<only for the cron job>
 ```
+
+`SYNC_EVERY_MINUTES` is how often the server looks for new repos, new PRs and test results (`0` turns it off).
 
 `FRONTEND_URL` is the only origin CORS allows, and the GitHub callback sends users back to it. Set it to the real frontend URL when you deploy.
 
@@ -163,6 +172,24 @@ API docs: http://localhost:8001/docs
 
 **Database changes:** edit a model → `alembic revision --autogenerate -m "what changed"` → `alembic upgrade head`.
 
+## Notifications and background jobs
+
+**New repos and PRs reach the bell in two ways.** Both save to the same `seen_items` table, so one event never makes two notifications.
+
+1. **Sync (works locally, no setup):** every 3 minutes the server reads each linked account's repos and open PRs. The first sync only remembers what exists, so old repos make no notifications.
+2. **Webhook (instant, for deployment):** GitHub calls `POST /webhooks/github`. Every call is checked with `X-Hub-Signature-256`.
+
+**Set up the webhook:** GitHub → Settings → Developer settings → GitHub Apps → New.
+
+- Webhook URL: `https://<your backend>/webhooks/github`, and a secret that is the same as `GITHUB_WEBHOOK_SECRET`
+- Repository permissions (read-only): Metadata, Pull requests, Actions
+- Events: Repository, Pull request, Workflow run
+- Install it on your account with "All repositories". To test locally, point the URL at an ngrok tunnel to port 8001.
+
+**Cron job (for hosts where the server sleeps):** call `POST /internal/sync` every 10-15 minutes with the header `X-Cron-Secret: <CRON_SECRET>`. Run the server with one worker, or set `SYNC_EVERY_MINUTES=0` and use only the cron job.
+
+**Background jobs:** review, fix and indexing answer at once with a job, and the page asks `GET /jobs/{id}` every 3 seconds. They keep running if you close the page, and the result shows when you come back. A failed job also makes a notification. Jobs run inside the server process, so a restart stops the running ones; they show as failed after 45 minutes.
+
 ## API
 
 | Method | Endpoint | What it does |
@@ -175,10 +202,12 @@ API docs: http://localhost:8001/docs
 | `POST` | `/github/login`, `/github/connect` | GitHub OAuth (connect adds another account) |
 | `DELETE` | `/github/accounts/{id}` | remove a linked GitHub account |
 | `GET` | `/github/repos`, `/github/repos/{owner}/{name}/pulls` | repos of all linked accounts and open PRs |
-| `POST` / `GET` | `/github/repos/{owner}/{name}/index` | index the code in pgvector / chunk count |
-| `POST` / `GET` | `/reviews` | review a PR / saved reviews |
+| `POST` / `GET` | `/github/repos/{owner}/{name}/index` | start an indexing job / chunk count |
+| `POST` / `GET` | `/reviews` | start a review job / saved reviews |
 | `POST` | `/reviews/{id}/publish-summary` | add the AI summary to the PR description on GitHub (your own text stays) |
-| `POST` / `GET` | `/fixes` | make a fix / saved fixes |
+| `POST` / `GET` | `/fixes` | start a fix job / saved fixes |
+| `GET` | `/jobs/{id}` | status and result of a background job |
+| `POST` | `/webhooks/github`, `/internal/sync` | GitHub events (signed) / cron sync (secret header) |
 | `POST` | `/fixes/{id}/approve`, `/reject`, `/check` | open PR / reject / check CI and retry |
 
 GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md).
@@ -202,7 +231,7 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 | GitHub calls fail / Approve fails | Reconnect GitHub (the token needs the `repo` and `workflow` scopes) |
 | "Add another account" links the same account again | GitHub shows an account picker; if the other account is not listed, sign in to it on github.com first |
 | Gemini `429` | free tier allows ~5 calls per minute. Agents wait and retry 4 times; big PRs are slow on the free tier |
-| Indexing takes many minutes | free tier allows 30,000 embedding tokens per minute. Indexing sends 25 chunks at a time and waits when the limit is hit; a big repo can take around 20 minutes, so keep the page open |
+| Indexing takes many minutes | free tier allows 30,000 embedding tokens per minute. Indexing sends 25 chunks at a time and waits when the limit is hit; a big repo can take around 20 minutes. It runs in the background |
 | AI call hangs with no error | `gemini-flash-latest` sometimes never answers. Set `GEMINI_MODEL=gemini-2.5-flash` |
 
 ## Status
@@ -217,6 +246,8 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - [x] Dashboard with stats and charts
 - [x] Many GitHub accounts per user
 - [x] New responsive design with light / dark theme
-- [x] Notifications with a bell: review ready, fix ready, tests passed or failed (the bell checks every 30 seconds)
-- [ ] Notifications for new repos and new PRs (GitHub App + webhook)
+- [x] Notifications with a bell: review ready, fix ready, tests passed or failed, job failed (the bell checks every 30 seconds)
+- [x] Notifications for new repos and new PRs (sync every 3 minutes, webhook for instant)
+- [x] Test results update by themselves
+- [x] Background jobs for review, fix and indexing
 - [ ] **Deployment**

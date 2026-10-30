@@ -1,6 +1,6 @@
 import os
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -8,8 +8,9 @@ from ..core.auth import auth
 from ..core.db import get_db
 from ..models.user import User
 from ..schemas.github import GithubCodeDto, IndexResponse, PullResponse, RepoResponse
+from ..schemas.job import JobResponse
 from ..schemas.user import TokenResponse, UserResponse
-from ..services import github_service
+from ..services import github_service, job_service
 from ..services.agent import code_index
 
 router = APIRouter(prefix="/github", tags=["GitHub"])
@@ -53,6 +54,11 @@ def index_status(owner: str, name: str, user: User = Depends(auth), db: Session 
     return IndexResponse(chunks=code_index.count_chunks(db, user, f"{owner}/{name}"))
 
 
-@router.post("/repos/{owner}/{name}/index", response_model=IndexResponse)
-def index_repo(owner: str, name: str, user: User = Depends(auth), db: Session = Depends(get_db)):
-    return IndexResponse(chunks=code_index.index_repo(db, user, f"{owner}/{name}"))
+@router.post("/repos/{owner}/{name}/index", response_model=JobResponse)
+def index_repo(owner: str, name: str, background: BackgroundTasks, user: User = Depends(auth), db: Session = Depends(get_db)):
+    repo = f"{owner}/{name}"
+
+    def work(job_db: Session, job_user: User):
+        return {"chunks": code_index.index_repo(job_db, job_user, repo)}
+
+    return job_service.start_job(db, user, background, "Indexing", repo, work)

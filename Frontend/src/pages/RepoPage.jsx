@@ -3,8 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
 import { CheckIcon, FixIcon } from '../components/Icons';
+import { waitForJob } from '../jobs';
 
 const API = import.meta.env.VITE_API_URL;
+const REFRESH_FIXES_EVERY = 30000;
 const authHeaders = () => ({ headers: { Authorization: `Bearer ${Cookies.get("token")}` } });
 
 const SEVERITY = {
@@ -71,12 +73,26 @@ const RepoPage = () => {
     load();
   }, [repo]);
 
+  // shows test results without a click, the server checks them by itself
+  useEffect(() => {
+    const refresh = async () => {
+      try {
+        const response = await axios.get(`${API}/fixes`, { ...authHeaders(), params: { repo } });
+        setFixes(response.data);
+      } catch {
+        // the next refresh tries again
+      }
+    };
+    const timer = setInterval(refresh, REFRESH_FIXES_EVERY);
+    return () => clearInterval(timer);
+  }, [repo]);
+
   const runReview = async (prNumber) => {
     setError("");
     setReviewing(prNumber);
     try {
-      const response = await axios.post(`${API}/reviews`, { repo, pr_number: prNumber }, authHeaders());
-      setReviews([response.data, ...reviews]);
+      const response = await waitForJob(await axios.post(`${API}/reviews`, { repo, pr_number: prNumber }, authHeaders()));
+      setReviews((current) => [response.data, ...current]);
     } catch (err) {
       handleError(err, "AI review failed.");
     } finally {
@@ -88,7 +104,7 @@ const RepoPage = () => {
     setError("");
     setIndexing(true);
     try {
-      const response = await axios.post(`${API}/github/repos/${repo}/index`, {}, authHeaders());
+      const response = await waitForJob(await axios.post(`${API}/github/repos/${repo}/index`, {}, authHeaders()));
       setChunks(response.data.chunks);
     } catch (err) {
       handleError(err, "Indexing failed.");
@@ -258,7 +274,8 @@ const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
     setMessage("");
     setLoading(true);
     try {
-      const response = await axios.post(API + url, body, authHeaders());
+      const first = await axios.post(API + url, body, authHeaders());
+      const response = first.data.job_id ? await waitForJob(first) : first;
       setFixes((current) => [response.data, ...current.filter((x) => x.id !== response.data.id)]);
     } catch (err) {
       if (err.response?.status === 401) {

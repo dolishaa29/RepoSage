@@ -115,6 +115,8 @@ def reject_fix(db: Session, user: User, fix_id: int):
 
 def check_tests(db: Session, user: User, fix_id: int):
     fix = get_my_fix(db, user, fix_id)
+    # the sync, the webhook and the button can all arrive together, only one may retry
+    db.refresh(fix, with_for_update=True)
     if fix.ci_status != "running":
         return fix
     token = get_token(user, fix.repo)
