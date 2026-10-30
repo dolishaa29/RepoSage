@@ -113,7 +113,7 @@ Frontend/src/
 ├── components/            UserLayout (sidebar + phone tabs), AuthLayout, Userpri (private route), GithubButton,
 │                          Logo, Icons, ThemeToggle, NotificationBell,
 │                          dashboard parts: StatCard, BarList, ActivityChart, RecentActivity, GithubAccounts, RepoList
-└── pages/                 Login, Register, GithubCallback, Dashboard, Repos, RepoPage, Notifications
+└── pages/                 Login, Register, GithubCallback, Dashboard, Repos, RepoPage, Notifications, ForgotPassword, ResetPassword
 ```
 
 ## Run locally
@@ -147,6 +147,11 @@ FRONTEND_URL=http://localhost:5174
 SYNC_EVERY_MINUTES=3
 GITHUB_WEBHOOK_SECRET=<only for the webhook>
 CRON_SECRET=<only for the cron job>
+SMTP_HOST=<only for password reset email>
+SMTP_PORT=587
+SMTP_USER=<smtp user>
+SMTP_PASSWORD=<smtp password>
+MAIL_FROM=<sender address>
 ```
 
 `SYNC_EVERY_MINUTES` is how often the server looks for new repos, new PRs and test results (`0` turns it off).
@@ -169,6 +174,8 @@ VITE_GITHUB_CLIENT_ID=<client id>
 ```
 
 API docs: http://localhost:8001/docs
+
+**Tests:** `cd Backend` → `pytest`. GitHub and Gemini are mocked, so nothing is sent to them. The tests use the database in `DATABASE_URL`: they make temporary `pytest-...@example.com` users and remove them at the end.
 
 **Database changes:** edit a model → `alembic revision --autogenerate -m "what changed"` → `alembic upgrade head`.
 
@@ -195,6 +202,7 @@ API docs: http://localhost:8001/docs
 | Method | Endpoint | What it does |
 |---|---|---|
 | `POST` | `/register`, `/login` | account, returns a JWT |
+| `POST` | `/forgot-password`, `/reset-password` | email a reset link / set a new password with it |
 | `GET` | `/me` | current user with linked GitHub accounts |
 | `GET` | `/stats` | dashboard numbers |
 | `GET` | `/notifications`, `/notifications/unread` | latest 50 notifications / unread count for the bell |
@@ -213,6 +221,8 @@ API docs: http://localhost:8001/docs
 GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md).
 
 ## Security
+
+- Password reset links work once, for 30 minutes, and only a hash of the token is saved. A reset does not log out sessions that are already open.
 
 - Passwords hashed with Argon2. GitHub tokens encrypted at rest with Fernet and never sent to the browser.
 - A login stays valid for 7 days (JWT and cookie).
@@ -248,6 +258,8 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - [x] New responsive design with light / dark theme
 - [x] Notifications with a bell: review ready, fix ready, tests passed or failed, job failed (the bell checks every 30 seconds)
 - [x] Notifications for new repos and new PRs (sync every 3 minutes, webhook for instant)
+- [x] Password reset by email
+- [x] Backend tests with pytest
 - [x] Test results update by themselves
 - [x] Background jobs for review, fix and indexing
 - [ ] **Deployment**

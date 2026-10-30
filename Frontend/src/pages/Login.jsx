@@ -54,6 +54,9 @@ const Login = () => {
       </form>
 
       {message && <p className="p-3 rounded-xl bg-high-soft text-high-text text-sm font-semibold">{message}</p>}
+      <p className="text-center text-sm">
+        <Link to="/forgot-password" className="text-accent-text font-bold">Forgot password?</Link>
+      </p>
       <p className="text-center text-sm text-ink-2">
         New here? <Link to="/register" className="text-accent-text font-bold">Create an account</Link>
       </p>

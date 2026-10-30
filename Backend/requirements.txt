@@ -10,3 +10,4 @@ langchain-google-genai
 alembic
 langgraph
 pgvector
+pytest

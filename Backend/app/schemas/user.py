@@ -11,6 +11,14 @@ class LoginDto(BaseModel):
     password: str
 
 
+class ForgotPasswordDto(BaseModel):
+    email: EmailStr
+
+class ResetPasswordDto(BaseModel):
+    token: str
+    password: str = Field(min_length=6)
+
+
 class GithubAccountResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: int
