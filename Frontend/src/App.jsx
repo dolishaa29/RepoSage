@@ -7,6 +7,7 @@ import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import RepoPage from './pages/RepoPage'
 import Repos from './pages/Repos'
+import Notifications from './pages/Notifications'
 
 function App() {
   return (
@@ -21,6 +22,7 @@ function App() {
           <Route path='/dashboard' element={<Dashboard/>}/>
           <Route path='/repos' element={<Repos/>}/>
           <Route path='/repo/:owner/:name' element={<RepoPage/>}/>
+          <Route path='/notifications' element={<Notifications/>}/>
         </Route>
 
         <Route path='*' element={<h1>No Such Router Exist</h1>} />

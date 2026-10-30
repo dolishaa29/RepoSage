@@ -1,7 +1,7 @@
 from alembic import context
 
 from app.core.db import Base, engine
-from app.models import code_chunk, fix, github_account, review, user
+from app.models import code_chunk, fix, github_account, notification, review, user
 
 target_metadata = Base.metadata
 

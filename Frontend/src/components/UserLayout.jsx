@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import Cookies from 'js-cookie';
 import Logo from './Logo';
+import NotificationBell from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
 import { BookIcon, GridIcon, LogoutIcon } from './Icons';
 
@@ -39,6 +40,7 @@ const UserLayout = () => {
             <p className="mt-1 text-xs leading-relaxed text-ink-2">Every AI fix opens a new PR. Nothing is merged without you.</p>
           </div>
           <div className="flex items-center gap-2">
+            <NotificationBell />
             <ThemeToggle />
             <button onClick={logout} className="flex-1 min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line text-sm font-semibold text-high-text hover:bg-high-soft">
               <LogoutIcon size={16} /> Sign out
@@ -51,6 +53,7 @@ const UserLayout = () => {
       <header className="lg:hidden sticky top-0 z-20 h-16 px-4 flex items-center justify-between bg-surface border-b border-line">
         <Logo />
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <ThemeToggle />
           <button onClick={logout} aria-label="Sign out" className="w-11 h-11 flex items-center justify-center rounded-xl border border-line text-high-text">
             <LogoutIcon />

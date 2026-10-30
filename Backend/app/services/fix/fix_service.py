@@ -6,6 +6,7 @@ from ...models.user import User
 from ...schemas.review import Finding
 from ..agent.tools import Context
 from ..github_service import get_raw_file, get_token
+from ..notification_service import add_notification
 from .github_files import branch_sha, commit_files, create_branch, delete_branch, get_pr, latest_run, open_pr, test_log
 from .prompts import fix_agent, fix_prompt, retry_prompt
 from .workflow import WORKFLOW_FILE, make_workflow
@@ -46,6 +47,7 @@ def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Findin
         test_command=result.test_command,
     )
     db.add(fix)
+    add_notification(db, user.id, "fix", f"Fix ready to approve in {repo} #{pr_number}: {finding.title}", repo)
     db.commit()
     db.refresh(fix)
     return fix
@@ -123,8 +125,10 @@ def check_tests(db: Session, user: User, fix_id: int):
 
     if run["conclusion"] == "success":
         fix.ci_status = "passed"
+        add_notification(db, user.id, "ci_passed", f"Tests passed in {fix.repo} #{fix.pr_number}: {fix.title}", fix.repo)
     elif fix.attempts >= MAX_ATTEMPTS:
         fix.ci_status = "failed"
+        add_notification(db, user.id, "ci_failed", f"Tests failed in {fix.repo} #{fix.pr_number}: {fix.title}", fix.repo)
     else:
         retry_fix(token, fix, test_log(token, fix.repo, run["id"]))
     db.commit()

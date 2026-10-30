@@ -5,6 +5,7 @@ from ...models.review import Review
 from ...models.user import User
 from ..agent.tools import Context
 from ..github_service import call_github, get_token
+from ..notification_service import add_notification
 from .graph import review_graph
 
 SKIP_FILES = ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Cargo.lock", "go.sum",
@@ -50,6 +51,7 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int):
     )
 
     db.add(review)
+    add_notification(db, user.id, "review", f"Review ready for {repo} #{pr_number}: {len(result.findings)} findings", repo)
     db.commit()
     db.refresh(review)
     return review

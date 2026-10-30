@@ -91,13 +91,14 @@ Backend/
 └── app/
     ├── main.py            app + routers
     ├── core/              db, auth (JWT), llm (Gemini), crypto (token encryption)
-    ├── models/            users, github_accounts, reviews, fixes, code_chunks
+    ├── models/            users, github_accounts, reviews, fixes, code_chunks, notifications
     ├── schemas/           request / response shapes
-    ├── routers/           user, github, review, fix, stats
+    ├── routers/           user, github, review, fix, stats, notification
     └── services/
         ├── user_service.py
         ├── github_service.py   GitHub OAuth, accounts, get_token(user, repo)
         ├── stats_service.py    numbers for the dashboard
+        ├── notification_service.py   save and read notifications
         ├── agent/         tools (read, search, edit), code_index (pgvector)
         ├── review/        review_service (split diff), graph (LangGraph), prompts (each agent next to its prompt)
         └── fix/           fix_service, prompts (fix agent), workflow, github_files
@@ -106,9 +107,9 @@ Frontend/src/
 ├── App.jsx                routes
 ├── index.css              theme colors (CSS variables for light and .dark)
 ├── components/            UserLayout (sidebar + phone tabs), AuthLayout, Userpri (private route), GithubButton,
-│                          Logo, Icons, ThemeToggle,
+│                          Logo, Icons, ThemeToggle, NotificationBell,
 │                          dashboard parts: StatCard, BarList, ActivityChart, RecentActivity, GithubAccounts, RepoList
-└── pages/                 Login, Register, GithubCallback, Dashboard, Repos, RepoPage
+└── pages/                 Login, Register, GithubCallback, Dashboard, Repos, RepoPage, Notifications
 ```
 
 ## Run locally
@@ -169,6 +170,8 @@ API docs: http://localhost:8001/docs
 | `POST` | `/register`, `/login` | account, returns a JWT |
 | `GET` | `/me` | current user with linked GitHub accounts |
 | `GET` | `/stats` | dashboard numbers |
+| `GET` | `/notifications`, `/notifications/unread` | latest 50 notifications / unread count for the bell |
+| `POST` | `/notifications/read` | mark all notifications as read |
 | `POST` | `/github/login`, `/github/connect` | GitHub OAuth (connect adds another account) |
 | `DELETE` | `/github/accounts/{id}` | remove a linked GitHub account |
 | `GET` | `/github/repos`, `/github/repos/{owner}/{name}/pulls` | repos of all linked accounts and open PRs |
@@ -212,4 +215,6 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - [x] Dashboard with stats and charts
 - [x] Many GitHub accounts per user
 - [x] New responsive design with light / dark theme
+- [x] Notifications with a bell: review ready, fix ready, tests passed or failed (the bell checks every 30 seconds)
+- [ ] Notifications for new repos and new PRs (GitHub App + webhook)
 - [ ] **Deployment**
