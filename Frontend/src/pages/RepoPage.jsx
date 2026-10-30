@@ -252,7 +252,13 @@ const PrSummary = ({ review }) => {
   return (
     <div className="p-5 bg-surface border border-line rounded-2xl flex flex-col gap-3">
       <h3 className="font-bold">PR summary</h3>
-      <p className="text-sm leading-relaxed text-ink-2 whitespace-pre-line break-words">{review.pr_summary}</p>
+      <div className="text-sm leading-relaxed text-ink-2 wrap-break-word">
+        {review.pr_summary.split("\n").map((line, i) => (
+          line.startsWith("### ")
+            ? <p key={i} className="mt-2 first:mt-0 font-semibold text-ink">{line.slice(4)}</p>
+            : <p key={i}>{line}</p>
+        ))}
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={publish} disabled={loading} className={secondary}>
           {loading ? "Please wait..." : "Add to PR description"}
