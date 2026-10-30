@@ -22,6 +22,7 @@ class Activity(BaseModel):
 
 class StatsResponse(BaseModel):
     reviews: int
+    repos: int
     findings: int
     fixes: int
     prs_opened: int

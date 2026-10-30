@@ -18,6 +18,8 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int):
     pr = call_github(token, f"/repos/{repo}/pulls/{pr_number}")
     files = call_github(token, f"/repos/{repo}/pulls/{pr_number}/files?per_page=100")
     chunks, skipped = make_chunks(files)
+    if pr["changed_files"] > len(files):
+        skipped.append(f"{pr['changed_files'] - len(files)} more files")
     if len(chunks) == 0:
         raise HTTPException(status_code=400, detail="This pull request has no code changes to review")
 
@@ -32,6 +34,8 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int):
             "security": [],
         }, context=context)
         result = state["result"]
+        if result is None:
+            raise ValueError("the AI returned no result")
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI review failed: {e}")
 

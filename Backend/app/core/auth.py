@@ -14,7 +14,7 @@ bearer = HTTPBearer()
 
 
 def create_token(user_id: int):
-    expire = datetime.now(timezone.utc) + timedelta(minutes=60)
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
     payload = {"sub": str(user_id), "exp": expire}
     token = jwt.encode(payload, SECRET_KEY)
     return token

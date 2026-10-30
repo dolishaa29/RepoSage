@@ -1,5 +1,6 @@
 import io
 import tarfile
+import time
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -18,6 +19,9 @@ MAX_FILE_SIZE = 100_000
 MAX_DOWNLOAD_SIZE = 50_000_000
 MAX_CHUNKS = 1000
 SEARCH_RESULTS = 5
+EMBED_BATCH = 25
+EMBED_RETRIES = 6
+EMBED_WAIT = 30
 
 
 def index_repo(db: Session, user: User, repo: str):
@@ -84,13 +88,25 @@ def add_embeddings(chunks: list[CodeChunk]):
     for chunk in chunks:
         texts.append(chunk.path + "\n" + chunk.content)
 
-    try:
-        vectors = embeddings.embed_documents(texts, task_type="RETRIEVAL_DOCUMENT")
-    except Exception as error:
-        raise HTTPException(status_code=502, detail=f"Embedding failed: {error}")
+    vectors = []
+    for start in range(0, len(texts), EMBED_BATCH):
+        vectors.extend(embed_batch(texts[start:start + EMBED_BATCH]))
 
     for i in range(len(chunks)):
         chunks[i].embedding = vectors[i]
+
+
+# the Gemini free tier allows 30,000 embedding tokens per minute, so wait and try again when it says stop
+def embed_batch(texts: list[str]):
+    for attempt in range(EMBED_RETRIES):
+        try:
+            return embeddings.embed_documents(texts, task_type="RETRIEVAL_DOCUMENT")
+        except Exception as error:
+            if "RESOURCE_EXHAUSTED" not in str(error):
+                raise HTTPException(status_code=502, detail=f"Embedding failed: {error}")
+            if attempt < EMBED_RETRIES - 1:
+                time.sleep(EMBED_WAIT)
+    raise HTTPException(status_code=502, detail="Gemini embedding limit reached, please try again later")
 
 
 def count_chunks(db: Session, user: User, repo: str):

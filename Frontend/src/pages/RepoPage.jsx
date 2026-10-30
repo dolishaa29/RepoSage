@@ -125,7 +125,7 @@ const RepoPage = () => {
 
       {error && <p className="p-4 bg-high-soft text-high-text text-sm font-semibold rounded-2xl">{error}</p>}
       {pulls === null && <p className="text-muted">Loading pull requests...</p>}
-      {pulls?.length === 0 && <p className="text-muted">No open pull requests.</p>}
+      {pulls?.length === 0 && !error && <p className="text-muted">No open pull requests.</p>}
 
       {pr && (
         <div className="flex flex-wrap items-start gap-6">
@@ -189,7 +189,7 @@ const Review = ({ review, pr, repo, fixes, setFixes }) => {
       {review.findings.length === 0 && <p className="p-4 rounded-2xl bg-ok-soft text-ok-text text-sm font-bold">No problems found.</p>}
 
       {review.findings.map((f, i) => (
-        <article key={i} className="bg-surface border border-line rounded-2xl overflow-hidden">
+        <article key={`${review.id}-${i}`} className="bg-surface border border-line rounded-2xl overflow-hidden">
           <div className="p-5 flex flex-col gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
               <span className={`px-2.5 py-1 rounded-md text-xs font-bold capitalize ${SEVERITY[f.severity]}`}>{f.severity}</span>
@@ -210,6 +210,7 @@ const Review = ({ review, pr, repo, fixes, setFixes }) => {
 const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const navigate = useNavigate();
 
   const fix = fixes.find((x) => x.pr_number === prNumber && x.file === finding.file && x.title === finding.title);
 
@@ -218,8 +219,13 @@ const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
     setLoading(true);
     try {
       const response = await axios.post(API + url, body, authHeaders());
-      setFixes([response.data, ...fixes.filter((x) => x.id !== response.data.id)]);
+      setFixes((current) => [response.data, ...current.filter((x) => x.id !== response.data.id)]);
     } catch (err) {
+      if (err.response?.status === 401) {
+        Cookies.remove("token");
+        navigate("/login");
+        return;
+      }
       setMessage(err.response?.data?.detail || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);

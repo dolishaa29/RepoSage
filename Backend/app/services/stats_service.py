@@ -35,8 +35,13 @@ def get_stats(db: Session, user: User):
 
     top_repos = sorted(repo_findings.items(), key=lambda item: item[1], reverse=True)[:5]
 
+    reviewed_repos = set()
+    for review in reviews:
+        reviewed_repos.add(review.repo)
+
     return {
         "reviews": len(reviews),
+        "repos": len(reviewed_repos),
         "findings": findings,
         "fixes": len(fixes),
         "prs_opened": prs_opened,

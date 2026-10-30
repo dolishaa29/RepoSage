@@ -21,10 +21,11 @@ const Login = () => {
     setLoading(true);
     try {
       const response = await axios.post(import.meta.env.VITE_API_URL + "/login", { email, password });
-      Cookies.set("token", response.data.access_token, { expires: 1 });
+      Cookies.set("token", response.data.access_token, { expires: 7 });
       navigate("/dashboard");
     } catch (err) {
-      setMessage(err.response?.data?.detail || "Login failed. Please try again.");
+      const detail = err.response?.data?.detail;
+      setMessage(Array.isArray(detail) ? detail[0].msg : detail || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }

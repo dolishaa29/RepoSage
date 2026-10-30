@@ -182,9 +182,11 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 ## Security
 
 - Passwords hashed with Argon2. GitHub tokens encrypted at rest with Fernet and never sent to the browser.
+- A login stays valid for 7 days (JWT and cookie).
 - The OAuth `state` parameter is checked (CSRF).
 - AI fixes go to a new branch and a new PR, and are never merged automatically.
-- Agents treat repo code as untrusted. The edit tools cannot touch `.github/` or paths with `..`, and can change at most 6 files.
+- Agents treat repo code as untrusted. Their tools cannot read or change paths with `..`, `.` or empty parts, the edit tools cannot touch `.github/` and can change at most 6 files, and `search_code` stays inside the current repo.
+- A fix cannot be approved if its files changed after it was made (`409`), because that would undo the newer commits. Reject it and make a new fix.
 
 ## Troubleshooting
 
@@ -196,6 +198,7 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 | GitHub calls fail / Approve fails | Reconnect GitHub (the token needs the `repo` and `workflow` scopes) |
 | "Add another account" links the same account again | GitHub shows an account picker; if the other account is not listed, sign in to it on github.com first |
 | Gemini `429` | free tier allows ~5 calls per minute. Agents wait and retry 4 times; big PRs are slow on the free tier |
+| Indexing takes many minutes | free tier allows 30,000 embedding tokens per minute. Indexing sends 25 chunks at a time and waits when the limit is hit; a big repo can take around 20 minutes, so keep the page open |
 | AI call hangs with no error | `gemini-flash-latest` sometimes never answers. Set `GEMINI_MODEL=gemini-2.5-flash` |
 
 ## Status

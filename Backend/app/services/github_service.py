@@ -1,6 +1,9 @@
 import os
+from urllib.parse import quote
+
 import httpx
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from ..core.auth import create_token
 from ..models.github_account import GithubAccount
@@ -8,6 +11,8 @@ from ..models.user import User
 
 CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+TIMEOUT = 30
+MAX_REPO_PAGES = 5
 
 
 def login(db: Session, code: str):
@@ -17,7 +22,7 @@ def login(db: Session, code: str):
     account = find_account(db, github_user["id"])
     if account is None:
         email = get_email(token)
-        if db.query(User).filter(User.email == email).first():
+        if db.query(User).filter(func.lower(User.email) == email).first():
             raise HTTPException(status_code=400, detail="Email already registered. Log in with your password, then connect GitHub")
         user = User(name=github_user["name"] or github_user["login"], email=email)
         db.add(user)
@@ -49,6 +54,8 @@ def remove_account(db: Session, user: User, account_id: int):
     account = db.query(GithubAccount).filter(GithubAccount.id == account_id, GithubAccount.user_id == user.id).first()
     if account is None:
         raise HTTPException(status_code=404, detail="GitHub account not found")
+    if user.hashed_password is None and len(user.github_accounts) == 1:
+        raise HTTPException(status_code=400, detail="This is your only way to log in, so it cannot be removed")
     db.delete(account)
     db.commit()
     db.refresh(user)
@@ -62,7 +69,10 @@ def get_repos(user: User):
     result = []
     seen = set()
     for account in user.github_accounts:
-        repos = call_github(account.token, "/user/repos?sort=updated&per_page=100")
+        try:
+            repos = get_account_repos(account.token)
+        except HTTPException as e:
+            raise HTTPException(status_code=e.status_code, detail=f"@{account.username}: {e.detail}")
         for repo in repos:
             if repo["id"] in seen:
                 continue
@@ -74,9 +84,19 @@ def get_repos(user: User):
     return result
 
 
+def get_account_repos(token: str):
+    repos = []
+    for page in range(1, MAX_REPO_PAGES + 1):
+        part = call_github(token, f"/user/repos?sort=updated&per_page=100&page={page}")
+        repos.extend(part)
+        if len(part) < 100:
+            break
+    return repos
+
+
 def get_pulls(user: User, repo: str):
     token = get_token(user, repo)
-    pulls = call_github(token, f"/repos/{repo}/pulls")
+    pulls = call_github(token, f"/repos/{repo}/pulls?per_page=100")
     result = []
     for p in pulls:
         pull = {
@@ -100,7 +120,7 @@ def get_token(user: User, repo: str):
             return account.token
 
     for account in user.github_accounts:
-        res = httpx.get(f"https://api.github.com/repos/{repo}", headers={"Authorization": f"Bearer {account.token}"})
+        res = github_request("GET", f"https://api.github.com/repos/{repo}", headers={"Authorization": f"Bearer {account.token}"})
         if res.status_code == 200:
             return account.token
 
@@ -121,7 +141,8 @@ def save_account(db: Session, user_id: int, github_user: dict, token: str):
 
 
 def get_github_token(code: str):
-    res = httpx.post(
+    res = github_request(
+        "POST",
         "https://github.com/login/oauth/access_token",
         data={"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "code": code},
         headers={"Accept": "application/json"},
@@ -135,48 +156,65 @@ def get_github_token(code: str):
 def get_email(token: str):
     emails = call_github(token, "/user/emails")
     for item in emails:
-        if item["primary"]:
+        if item["primary"] and item["verified"]:
             return item["email"].lower()
+    raise HTTPException(status_code=400, detail="Verify your primary email on GitHub first")
+
+
+def github_request(method: str, url: str, **kwargs):
+    try:
+        return httpx.request(method, url, timeout=TIMEOUT, **kwargs)
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="GitHub did not respond, please try again")
+
+
+def github_error(res: httpx.Response):
+    if res.status_code == 401:
+        return HTTPException(status_code=400, detail="GitHub access expired, connect GitHub again")
+    return HTTPException(status_code=400, detail=f"GitHub request failed (status {res.status_code})")
 
 
 def call_github(token: str, path: str):
-    res = httpx.get("https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"})
+    res = github_request("GET", "https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"})
     if res.status_code != 200:
-        raise HTTPException(status_code=400, detail="GitHub request failed, connect GitHub again")
+        raise github_error(res)
     return res.json()
 
 
 def get_github_text(token: str, path: str):
-    res = httpx.get("https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"}, follow_redirects=True)
+    res = github_request("GET", "https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"}, follow_redirects=True)
     if res.status_code != 200:
         raise HTTPException(status_code=400, detail="Could not read the test log from GitHub")
     return res.text
 
 
 def send_github(token: str, method: str, path: str, body: dict):
-    res = httpx.request(method, "https://api.github.com" + path, json=body, headers={"Authorization": f"Bearer {token}"})
+    res = github_request(method, "https://api.github.com" + path, json=body, headers={"Authorization": f"Bearer {token}"})
     if res.status_code not in (200, 201):
         raise HTTPException(status_code=400, detail=f"GitHub request failed: {res.json().get('message')}")
     return res.json()
 
 
 def get_raw_file(token: str, repo: str, path: str, ref: str):
-    res = httpx.get(
-        f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}",
+    res = github_request(
+        "GET",
+        f"https://api.github.com/repos/{repo}/contents/{quote(path)}?ref={ref}",
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.raw"},
         follow_redirects=True,
     )
     if res.status_code == 404:
         return None
     if res.status_code != 200:
-        raise HTTPException(status_code=400, detail="GitHub request failed, connect GitHub again")
+        raise github_error(res)
     return res.text
 
 
 def search_github_code(token: str, repo: str, text: str):
-    res = httpx.get(
+    clean_text = text.replace('"', " ")
+    res = github_request(
+        "GET",
         "https://api.github.com/search/code",
-        params={"q": f"{text} repo:{repo}", "per_page": 10},
+        params={"q": f'"{clean_text}" repo:{repo}', "per_page": 10},
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.text-match+json"},
     )
     if res.status_code != 200:
@@ -186,11 +224,14 @@ def search_github_code(token: str, repo: str, text: str):
 
 def get_github_bytes(token: str, path: str, max_size: int):
     data = bytearray()
-    with httpx.stream("GET", "https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"}, follow_redirects=True, timeout=60) as res:
-        if res.status_code != 200:
-            raise HTTPException(status_code=400, detail="GitHub download failed, connect GitHub again")
-        for part in res.iter_bytes():
-            data.extend(part)
-            if len(data) > max_size:
-                raise HTTPException(status_code=400, detail="This repo is too big to index")
+    try:
+        with httpx.stream("GET", "https://api.github.com" + path, headers={"Authorization": f"Bearer {token}"}, follow_redirects=True, timeout=60) as res:
+            if res.status_code != 200:
+                raise github_error(res)
+            for part in res.iter_bytes():
+                data.extend(part)
+                if len(data) > max_size:
+                    raise HTTPException(status_code=400, detail="This repo is too big to index")
+    except httpx.HTTPError:
+        raise HTTPException(status_code=502, detail="GitHub did not respond, please try again")
     return bytes(data)

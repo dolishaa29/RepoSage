@@ -1,6 +1,7 @@
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from ..core.auth import create_token
@@ -11,13 +12,14 @@ hasher = PasswordHasher()
 
 
 def register(db: Session, data: RegisterDto):
-    if db.query(User).filter(User.email == data.email).first():
+    email = data.email.lower()
+    if db.query(User).filter(func.lower(User.email) == email).first():
         raise HTTPException(status_code=400, detail="Email already registered")
 
     hashed = hasher.hash(data.password)
     user = User(
         name=data.name,
-        email=data.email,
+        email=email,
         hashed_password=hashed,
     )
     db.add(user)
@@ -27,7 +29,7 @@ def register(db: Session, data: RegisterDto):
 
 
 def login(db: Session, data: LoginDto):
-    user = db.query(User).filter(User.email == data.email).first()
+    user = db.query(User).filter(func.lower(User.email) == data.email.lower()).first()
     if user is None:
         raise HTTPException(status_code=401, detail="Wrong email or password")
     if user.hashed_password is None:

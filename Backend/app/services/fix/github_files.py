@@ -1,6 +1,5 @@
-import httpx
 from fastapi import HTTPException
-from ..github_service import call_github, get_github_text, send_github
+from ..github_service import call_github, get_github_text, github_request, send_github
 
 
 def get_pr(token: str, repo: str, pr_number: int):
@@ -19,7 +18,9 @@ def branch_sha(token: str, repo: str, branch: str):
 def commit_files(token: str, repo: str, branch: str, files: dict, message: str):
     head = branch_sha(token, repo, branch)
     commit = call_github(token, f"/repos/{repo}/git/commits/{head}")
-    entries = [{"path": path, "mode": "100644", "type": "blob", "content": code} for path, code in files.items()]
+    tree_items = call_github(token, f"/repos/{repo}/git/trees/{commit['tree']['sha']}?recursive=1")["tree"]
+    modes = {item["path"]: item["mode"] for item in tree_items}
+    entries = [{"path": path, "mode": modes.get(path, "100644"), "type": "blob", "content": code} for path, code in files.items()]
     tree = send_github(token, "POST", f"/repos/{repo}/git/trees", {"base_tree": commit["tree"]["sha"], "tree": entries})
     new_commit = send_github(token, "POST", f"/repos/{repo}/git/commits", {"message": message, "tree": tree["sha"], "parents": [head]})
     send_github(token, "PATCH", f"/repos/{repo}/git/refs/heads/{branch}", {"sha": new_commit["sha"]})
@@ -31,7 +32,10 @@ def create_branch(token: str, repo: str, branch: str, sha: str):
 
 
 def delete_branch(token: str, repo: str, branch: str):
-    httpx.delete(f"https://api.github.com/repos/{repo}/git/refs/heads/{branch}", headers={"Authorization": f"Bearer {token}"})
+    try:
+        github_request("DELETE", f"https://api.github.com/repos/{repo}/git/refs/heads/{branch}", headers={"Authorization": f"Bearer {token}"})
+    except HTTPException:
+        pass
 
 
 

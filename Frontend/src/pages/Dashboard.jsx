@@ -70,7 +70,6 @@ const Dashboard = () => {
 
   const ciDone = stats.ci_passed + stats.ci_failed;
   const passRate = ciDone === 0 ? "–" : `${Math.round((stats.ci_passed / ciDone) * 100)}%`;
-  const repoCount = new Set(stats.top_repos.map((r) => r.repo)).size;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-12 py-8 flex flex-col gap-6">
@@ -87,7 +86,7 @@ const Dashboard = () => {
       {error && <p className="p-4 bg-high-soft text-high-text text-sm font-semibold rounded-2xl">{error}</p>}
 
       <section aria-label="Totals" className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="PRs reviewed" value={stats.reviews} note={`across ${repoCount} repos`} dot="bg-accent" />
+        <StatCard label="PRs reviewed" value={stats.reviews} note={`across ${stats.repos} repos`} dot="bg-accent" />
         <StatCard label="Findings" value={stats.findings} note={`${stats.severity.high} high severity`} dot="bg-high" />
         <StatCard label="AI fixes" value={stats.fixes} note={`${stats.prs_opened} fix PRs opened`} dot="bg-teal" />
         <StatCard label="CI pass rate" value={passRate} note={`${stats.ci_passed} passed · ${stats.ci_failed} failed`} dot="bg-ok-text" />

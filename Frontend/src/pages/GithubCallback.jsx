@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -6,8 +6,13 @@ import Cookies from 'js-cookie';
 const GithubCallback = () => {
   const navigate = useNavigate();
   const [message, setMessage] = useState("Signing in with GitHub...");
+  const started = useRef(false);
 
   useEffect(() => {
+    // StrictMode runs this twice, and a GitHub code works only once
+    if (started.current) return;
+    started.current = true;
+
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const token = Cookies.get("token");
@@ -28,10 +33,15 @@ const GithubCallback = () => {
           await axios.post(import.meta.env.VITE_API_URL + "/github/connect", { code }, { headers: { Authorization: `Bearer ${token}` } });
         } else {
           const response = await axios.post(import.meta.env.VITE_API_URL + "/github/login", { code });
-          Cookies.set("token", response.data.access_token, { expires: 1 });
+          Cookies.set("token", response.data.access_token, { expires: 7 });
         }
         navigate("/dashboard");
       } catch (err) {
+        if (err.response?.status === 401) {
+          Cookies.remove("token");
+          setMessage("Your session expired. Log in and try again.");
+          return;
+        }
         setMessage(err.response?.data?.detail || "GitHub login failed, please try again");
       }
     };

@@ -5,7 +5,7 @@ from ...models.fix import Fix
 from ...models.user import User
 from ...schemas.review import Finding
 from ..agent.tools import Context
-from ..github_service import get_token
+from ..github_service import get_raw_file, get_token
 from .github_files import branch_sha, commit_files, create_branch, delete_branch, get_pr, latest_run, open_pr, test_log
 from .prompts import fix_agent, fix_prompt, retry_prompt
 from .workflow import WORKFLOW_FILE, make_workflow
@@ -54,10 +54,10 @@ def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Findin
 def run_agent(message: str, context: Context):
     try:
         output = fix_agent.invoke({"messages": [{"role": "user", "content": message}]}, context=context, config={"recursion_limit": MAX_STEPS})
+        result = output["structured_response"]
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI fix failed: {e}")
 
-    result = output["structured_response"]
     return result
 
 
@@ -70,6 +70,7 @@ def approve_fix(db: Session, user: User, fix_id: int):
     fix = get_pending_fix(db, user, fix_id)
     token = get_token(user, fix.repo)
     pr = get_pr(token, fix.repo, fix.pr_number)
+    check_files_unchanged(token, fix, pr["head"]["sha"])
 
     branch = f"gitaudit/fix-pr{fix.pr_number}-{int(time.time())}"
     create_branch(token, fix.repo, branch, pr["head"]["sha"])
@@ -92,6 +93,14 @@ def approve_fix(db: Session, user: User, fix_id: int):
     db.commit()
     db.refresh(fix)
     return fix
+
+
+# a fix stores whole files, so approving it after the PR moved on would undo the newer commits
+def check_files_unchanged(token: str, fix: Fix, ref: str):
+    for change in fix.changes:
+        current = get_raw_file(token, fix.repo, change["file"], ref) or ""
+        if current != change["old_code"]:
+            raise HTTPException(status_code=409, detail=f"{change['file']} changed after this fix was made. Reject it and make a new fix")
 
 
 def reject_fix(db: Session, user: User, fix_id: int):

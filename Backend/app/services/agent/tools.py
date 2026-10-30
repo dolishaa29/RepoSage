@@ -20,6 +20,8 @@ class Context:
 
 
 def get_text(context: Context, path: str):
+    if not is_safe_path(path):
+        raise HTTPException(status_code=400, detail="This path is not allowed")
     if path in context.changes:
         return context.changes[path]
     if path not in context.originals:
@@ -97,6 +99,9 @@ def edit_file(path: str, old_text: str, new_text: str, runtime: ToolRuntime[Cont
         return f"Error: {e.detail}"
     if text is None:
         return f"Error: {path} does not exist, use create_file"
+    if "\r\n" in text:
+        old_text = old_text.replace("\r\n", "\n").replace("\n", "\r\n")
+        new_text = new_text.replace("\r\n", "\n").replace("\n", "\r\n")
     count = text.count(old_text)
     if old_text == "" or count == 0:
         return "Error: old_text was not found. Read the file again and copy the lines exactly"
@@ -124,8 +129,15 @@ def create_file(path: str, content: str, runtime: ToolRuntime[Context]) -> str:
     return f"Created {path}"
 
 
+def is_safe_path(path: str):
+    for part in path.split("/"):
+        if part in ("", ".", ".."):
+            return False
+    return True
+
+
 def check_path(context: Context, path: str):
-    if path.startswith(".github/") or ".." in path.split("/"):
+    if path.startswith(".github/") or not is_safe_path(path):
         return "Error: you are not allowed to change this path"
     if path not in context.changes and len(context.changes) >= MAX_FILES:
         return f"Error: you can change at most {MAX_FILES} files"
