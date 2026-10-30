@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ...models.review import Review
 from ...models.user import User
 from ..agent.tools import Context
-from ..github_service import call_github, get_token
+from ..github_service import call_github, get_token, send_github
 from ..notification_service import add_notification
 from .graph import review_graph
 
@@ -12,6 +12,8 @@ SKIP_FILES = ("package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock",
               ".min.js", ".min.css", ".map", ".svg")
 CHUNK_SIZE = 30000
 MAX_CHUNKS = 6
+SUMMARY_START = "<!-- gitaudit-summary-start -->"
+SUMMARY_END = "<!-- gitaudit-summary-end -->"
 
 
 def review_pr(db: Session, user: User, repo: str, pr_number: int):
@@ -47,6 +49,8 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int):
         pr_title=pr["title"],
         ai="gemini · langgraph agents",
         summary=result.summary,
+        risk=result.risk,
+        pr_summary=f"### What changed\n{result.what_changed}\n\n### What to test\n{result.what_to_test}",
         findings=[f.model_dump() for f in result.findings],
     )
 
@@ -55,6 +59,32 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int):
     db.commit()
     db.refresh(review)
     return review
+
+
+def publish_summary(db: Session, user: User, review_id: int):
+    review = db.query(Review).filter(Review.id == review_id, Review.user_id == user.id).first()
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if not review.pr_summary:
+        raise HTTPException(status_code=400, detail="This review has no PR summary. Review the PR again first")
+
+    token = get_token(user, review.repo)
+    pr = call_github(token, f"/repos/{review.repo}/pulls/{review.pr_number}")
+    body = add_summary_to_body(pr["body"] or "", review.pr_summary)
+    send_github(token, "PATCH", f"/repos/{review.repo}/pulls/{review.pr_number}", {"body": body})
+    return review
+
+
+# keeps the user's own text, and replaces only the part gitAudit added before
+def add_summary_to_body(body: str, pr_summary: str):
+    before = body
+    after = ""
+    if SUMMARY_START in body and SUMMARY_END in body:
+        before, rest = body.split(SUMMARY_START, 1)
+        after = rest.split(SUMMARY_END, 1)[1]
+
+    section = f"{SUMMARY_START}\n## gitAudit summary\n\n{pr_summary}\n{SUMMARY_END}"
+    return (before.rstrip() + "\n\n" + section + after).strip()
 
 
 def get_reviews(db: Session, user: User, repo: str):

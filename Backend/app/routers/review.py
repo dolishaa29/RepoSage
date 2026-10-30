@@ -15,6 +15,11 @@ def create_review(data: ReviewDto, user: User = Depends(auth), db: Session = Dep
     return review_service.review_pr(db, user, data.repo, data.pr_number)
 
 
+@router.post("/reviews/{review_id}/publish-summary", response_model=ReviewResponse)
+def publish_summary(review_id: int, user: User = Depends(auth), db: Session = Depends(get_db)):
+    return review_service.publish_summary(db, user, review_id)
+
+
 @router.get("/reviews", response_model=list[ReviewResponse])
 def list_reviews(repo: str, user: User = Depends(auth), db: Session = Depends(get_db)):
     return review_service.get_reviews(db, user, repo)

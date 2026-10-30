@@ -177,6 +177,7 @@ API docs: http://localhost:8001/docs
 | `GET` | `/github/repos`, `/github/repos/{owner}/{name}/pulls` | repos of all linked accounts and open PRs |
 | `POST` / `GET` | `/github/repos/{owner}/{name}/index` | index the code in pgvector / chunk count |
 | `POST` / `GET` | `/reviews` | review a PR / saved reviews |
+| `POST` | `/reviews/{id}/publish-summary` | add the AI summary to the PR description on GitHub (your own text stays) |
 | `POST` / `GET` | `/fixes` | make a fix / saved fixes |
 | `POST` | `/fixes/{id}/approve`, `/reject`, `/check` | open PR / reject / check CI and retry |
 
@@ -208,6 +209,7 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 
 - [x] Login (email + GitHub), repos, pull requests
 - [x] Multi-agent AI review (LangGraph, tools, big PRs in parts)
+- [x] Risk level (low, medium, high) and a PR summary that can be added to the PR description
 - [x] Fix agent with patch edits and multi-file fixes → approve → PR
 - [x] pgvector code index + semantic search
 - [x] Unit tests in GitHub Actions + AI retry (any language)

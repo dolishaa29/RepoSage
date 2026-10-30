@@ -13,5 +13,7 @@ class Review(Base):
     pr_title = Column(String, nullable=False)
     ai = Column(String, nullable=True)             
     summary = Column(Text, nullable=False)
+    risk = Column(String, nullable=True)
+    pr_summary = Column(Text, nullable=True)
     findings = Column(JSON, nullable=False)        
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))

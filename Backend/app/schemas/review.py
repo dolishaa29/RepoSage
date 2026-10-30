@@ -18,6 +18,9 @@ class AgentResult(BaseModel):
 
 class ReviewResult(BaseModel):
     summary: str = Field(description="2-3 sentences about the pull request and its overall risk")
+    risk: Literal["high", "medium", "low"] = Field(description="how risky it is to merge this pull request")
+    what_changed: str = Field(description="1-3 short sentences about what this pull request changes")
+    what_to_test: str = Field(description="1-3 short sentences about what a person should test")
     findings: list[Finding]
 
 
@@ -34,5 +37,7 @@ class ReviewResponse(BaseModel):
     pr_title: str
     ai: str | None
     summary: str
+    risk: str | None
+    pr_summary: str | None
     findings: list[Finding]
     created_at: datetime

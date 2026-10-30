@@ -132,7 +132,7 @@ const RepoPage = () => {
           <section aria-label="Open pull requests" className="flex-[1_1_280px] min-w-0 flex flex-col gap-2.5">
             <h2 className="font-display text-lg font-bold">Open pull requests</h2>
             {pulls.map((p) => {
-              const reviewed = reviews.some((r) => r.pr_number === p.number);
+              const latest = reviews.find((r) => r.pr_number === p.number);
               const active = p.number === selected;
               return (
                 <button
@@ -141,7 +141,7 @@ const RepoPage = () => {
                   className={`text-left p-4 rounded-2xl bg-surface ${active ? "border-2 border-accent" : "border border-line hover:border-accent"}`}
                 >
                   <span className="block text-sm font-bold">#{p.number} {p.title}</span>
-                  <span className="block mt-1 text-xs text-muted">by {p.author} · {reviewed ? "reviewed" : "not reviewed"}</span>
+                  <span className="block mt-1 text-xs text-muted">by {p.author} · {latest ? "reviewed" : "not reviewed"}{latest?.risk ? ` · ${latest.risk} risk` : ""}</span>
                 </button>
               );
             })}
@@ -180,11 +180,14 @@ const Review = ({ review, pr, repo, fixes, setFixes }) => {
         </div>
         <p className="text-sm leading-relaxed text-ink-2">{review.summary}</p>
         <div className="flex flex-wrap gap-2">
+          {review.risk && <span className={`px-2.5 py-1.5 rounded-full text-xs font-bold capitalize border border-line ${SEVERITY[review.risk]}`}>{review.risk} risk</span>}
           <span className={`px-2.5 py-1.5 rounded-full text-xs font-bold ${SEVERITY.high}`}>{count("high")} High</span>
           <span className={`px-2.5 py-1.5 rounded-full text-xs font-bold ${SEVERITY.medium}`}>{count("medium")} Medium</span>
           <span className={`px-2.5 py-1.5 rounded-full text-xs font-bold ${SEVERITY.low}`}>{count("low")} Low</span>
         </div>
       </div>
+
+      {review.pr_summary && <PrSummary key={review.id} review={review} />}
 
       {review.findings.length === 0 && <p className="p-4 rounded-2xl bg-ok-soft text-ok-text text-sm font-bold">No problems found.</p>}
 
@@ -204,6 +207,43 @@ const Review = ({ review, pr, repo, fixes, setFixes }) => {
         </article>
       ))}
     </>
+  );
+};
+
+const PrSummary = ({ review }) => {
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  const navigate = useNavigate();
+
+  const publish = async () => {
+    setMessage("");
+    setLoading(true);
+    try {
+      await axios.post(`${API}/reviews/${review.id}/publish-summary`, {}, authHeaders());
+      setMessage("Added to the PR description on GitHub.");
+    } catch (err) {
+      if (err.response?.status === 401) {
+        Cookies.remove("token");
+        navigate("/login");
+        return;
+      }
+      setMessage(err.response?.data?.detail || "Couldn't update the PR description.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="p-5 bg-surface border border-line rounded-2xl flex flex-col gap-3">
+      <h3 className="font-bold">PR summary</h3>
+      <p className="text-sm leading-relaxed text-ink-2 whitespace-pre-line break-words">{review.pr_summary}</p>
+      <div className="flex flex-wrap items-center gap-3">
+        <button onClick={publish} disabled={loading} className={secondary}>
+          {loading ? "Please wait..." : "Add to PR description"}
+        </button>
+        {message && <span className="text-sm font-semibold text-ink-2">{message}</span>}
+      </div>
+    </div>
   );
 };
 

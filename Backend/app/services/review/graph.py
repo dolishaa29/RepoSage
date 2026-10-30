@@ -10,6 +10,7 @@ from ..agent.tools import Context
 from .prompts import chunk_prompt, lead_chain, security_agent, structure_agent
 
 MAX_STEPS = 25
+MAX_LEAD_DIFF = 30000
 
 
 class ReviewState(TypedDict):
@@ -61,6 +62,7 @@ def lead(state: ReviewState):
         "title": state["title"],
         "files": state["files"],
         "skipped": ", ".join(state["skipped"]) or "none",
+        "diff": "\n".join(state["chunks"])[:MAX_LEAD_DIFF],
     })
     return {"result": result}
 
