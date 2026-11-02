@@ -10,6 +10,7 @@ from ...core.llm import embeddings
 from ...models.code_chunk import CodeChunk
 from ...models.user import User
 from ..github_service import get_github_bytes, get_token
+from .guardrails import hide_secrets
 
 CODE_EXTENSIONS = (".py", ".js", ".jsx", ".ts", ".tsx", ".java", ".kt", ".go", ".rb", ".php", ".cs", ".rs",
                    ".c", ".h", ".cpp", ".hpp", ".swift", ".scala", ".sql", ".vue", ".svelte", ".sh")
@@ -66,7 +67,7 @@ def is_code_file(file_path: str):
 
 
 def split_into_chunks(repo: str, file_path: str, file_text: str):
-    all_lines = file_text.splitlines()
+    all_lines = hide_secrets(file_text).splitlines()
     chunks = []
 
     for start in range(0, len(all_lines), LINES_PER_CHUNK):

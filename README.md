@@ -231,6 +231,15 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - Agents treat repo code as untrusted. Their tools cannot read or change paths with `..`, `.` or empty parts, the edit tools cannot touch `.github/` and can change at most 6 files, and `search_code` stays inside the current repo.
 - A fix cannot be approved if its files changed after it was made (`409`), because that would undo the newer commits. Reject it and make a new fix.
 
+**AI guardrails** (`services/agent/guardrails.py`, no extra library):
+
+- The test workflow gets a read-only token, and `actions/checkout` does not keep it for later steps.
+- An AI retry stops with CI status `blocked` if it wants a new file, a new test command or adds a secret. Nothing is committed and you get a notification. Retries can still edit files you already approved.
+- A fix is blocked (`422`) if it adds a known secret format or its test command has things like `curl`, `git push`, `GITHUB_TOKEN` or `${{`. This is a simple pattern check, so the read-only token is the real protection.
+- Agents cannot change build and install files (`Dockerfile`, `package.json`, `requirements.txt`, ...), so fixes that need a dependency change must be done by hand.
+- Secrets in diffs, tool results, test logs and the code index are hidden before they reach Gemini. `edit_file` puts the real value back, so an unrelated edit keeps it.
+- Each user can start 20 AI jobs per hour (`429`).
+
 ## Troubleshooting
 
 | Problem | Fix |

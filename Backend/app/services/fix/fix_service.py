@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from ...models.fix import Fix
 from ...models.user import User
 from ...schemas.review import Finding
+from ..agent.guardrails import find_problems, hide_secrets
 from ..agent.tools import Context
 from ..github_service import get_raw_file, get_token
 from ..notification_service import add_notification
@@ -34,6 +35,9 @@ def make_fix(db: Session, user: User, repo: str, pr_number: int, finding: Findin
     if result.test_file not in context.changes:
         result.test_file = ""
         result.test_command = ""
+    problems = find_problems(context.changes, context.originals, result.test_command)
+    if problems:
+        raise HTTPException(status_code=422, detail="AI fix was blocked: " + ", ".join(problems))
 
     fix = Fix(
         user_id=user.id,
@@ -132,7 +136,10 @@ def check_tests(db: Session, user: User, fix_id: int):
         fix.ci_status = "failed"
         add_notification(db, user.id, "ci_failed", f"Tests failed in {fix.repo} #{fix.pr_number}: {fix.title}", fix.repo)
     else:
-        retry_fix(token, fix, test_log(token, fix.repo, run["id"]))
+        stop_reason = retry_fix(token, fix, test_log(token, fix.repo, run["id"]))
+        if stop_reason:
+            fix.ci_status = "blocked"
+            add_notification(db, user.id, "ci_failed", f"AI retry stopped in {fix.repo} #{fix.pr_number}: {stop_reason}", fix.repo)
     db.commit()
     db.refresh(fix)
     return fix
@@ -145,11 +152,20 @@ def retry_fix(token: str, fix: Fix, log: str):
         files=", ".join(change["file"] for change in fix.changes),
         test_file=fix.test_file,
         test_command=fix.test_command,
-        log=log,
+        log=hide_secrets(log),
     )
     result = run_agent(message, context)
 
     changes = {change["file"]: change for change in fix.changes}
+    # the user approved these files and this command, so anything new must not run in CI without them
+    if any(path not in changes for path in context.changes):
+        return "the AI wanted to add a new file"
+    if result.test_command and result.test_command != fix.test_command:
+        return "the AI wanted to change the test command"
+    problems = find_problems(context.changes, context.originals, "")
+    if problems:
+        return ", ".join(problems)
+
     for path, code in context.changes.items():
         if path in changes:
             changes[path] = {**changes[path], "new_code": code}
@@ -166,6 +182,7 @@ def retry_fix(token: str, fix: Fix, log: str):
     files = dict(context.changes)
     files[WORKFLOW_FILE] = make_workflow(fix.test_command)
     commit_files(token, fix.repo, fix.branch, files, f"Retry {fix.attempts}: {fix.title}")
+    return None
 
 
 def get_my_fix(db: Session, user: User, fix_id: int):

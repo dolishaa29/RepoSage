@@ -5,9 +5,13 @@ from langchain.tools import ToolRuntime, tool
 
 from ..github_service import call_github, get_raw_file, search_github_code
 from .code_index import search_chunks
+from .guardrails import hide_secrets, restore_secrets
 
 MAX_LINES = 300
 MAX_FILES = 6
+# these files run code during install or build
+BLOCKED_FILES = {"dockerfile", "docker-compose.yml", "makefile", "package.json", ".npmrc", "setup.py", "pyproject.toml",
+                 "requirements.txt", "gemfile", "pom.xml", "build.gradle", "cargo.toml", "go.mod"}
 
 
 @dataclass
@@ -17,6 +21,7 @@ class Context:
     ref: str
     originals: dict = field(default_factory=dict)
     changes: dict = field(default_factory=dict)
+    secrets: dict = field(default_factory=dict)
 
 
 def get_text(context: Context, path: str):
@@ -38,7 +43,7 @@ def read_file(path: str, start_line: int, end_line: int, runtime: ToolRuntime[Co
         return f"Error: {e.detail}"
     if text is None:
         return f"Error: {path} does not exist"
-    lines = text.splitlines()
+    lines = hide_secrets(text, runtime.context.secrets).splitlines()
     start = max(start_line, 1)
     end = min(end_line, start + MAX_LINES - 1, len(lines))
     numbered = [f"{n}: {lines[n - 1]}" for n in range(start, end + 1)]
@@ -71,7 +76,7 @@ def search_code(text: str, runtime: ToolRuntime[Context]) -> str:
     for item in items:
         fragments = " ... ".join(m["fragment"] for m in item.get("text_matches", []))
         results.append(f"{item['path']}: {fragments}")
-    return "\n\n".join(results) or "Nothing found"
+    return hide_secrets("\n\n".join(results), runtime.context.secrets) or "Nothing found"
 
 
 @tool
@@ -99,6 +104,8 @@ def edit_file(path: str, old_text: str, new_text: str, runtime: ToolRuntime[Cont
         return f"Error: {e.detail}"
     if text is None:
         return f"Error: {path} does not exist, use create_file"
+    old_text = restore_secrets(old_text, context.secrets)
+    new_text = restore_secrets(new_text, context.secrets)
     if "\r\n" in text:
         old_text = old_text.replace("\r\n", "\n").replace("\n", "\r\n")
         new_text = new_text.replace("\r\n", "\n").replace("\n", "\r\n")
@@ -137,8 +144,10 @@ def is_safe_path(path: str):
 
 
 def check_path(context: Context, path: str):
-    if path.startswith(".github/") or not is_safe_path(path):
+    if path.lower().startswith(".github/") or not is_safe_path(path):
         return "Error: you are not allowed to change this path"
+    if path.split("/")[-1].lower() in BLOCKED_FILES:
+        return "Error: you are not allowed to change build or install files"
     if path not in context.changes and len(context.changes) >= MAX_FILES:
         return f"Error: you can change at most {MAX_FILES} files"
     return None

@@ -10,9 +10,15 @@ from .notification_service import add_notification
 
 MAX_JOB_TIME = timedelta(minutes=45)
 MAX_ERROR_IN_NOTIFICATION = 200
+MAX_JOBS_PER_HOUR = 20
 
 
 def start_job(db: Session, user: User, background: BackgroundTasks, kind: str, repo: str, work):
+    one_hour_ago = datetime.now(timezone.utc) - timedelta(hours=1)
+    jobs_this_hour = db.query(Job).filter(Job.user_id == user.id, Job.created_at > one_hour_ago).count()
+    if jobs_this_hour >= MAX_JOBS_PER_HOUR:
+        raise HTTPException(status_code=429, detail=f"You can start {MAX_JOBS_PER_HOUR} AI jobs per hour. Please try again later")
+
     job = Job(user_id=user.id, kind=kind)
     db.add(job)
     db.commit()

@@ -21,6 +21,7 @@ const CI_STATUS = {
   running: "Tests running",
   passed: "Tests passed",
   failed: "Tests failed",
+  blocked: "Tests failed, AI retry stopped for safety",
   skipped: "No test for this file",
 };
 
@@ -316,7 +317,7 @@ const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
           Fix PR created ↗
         </a>
         {fix.ci_status && (
-          <span className={`text-sm font-semibold ${fix.ci_status === "failed" ? "text-high-text" : "text-ink-2"}`}>
+          <span className={`text-sm font-semibold ${fix.ci_status === "failed" || fix.ci_status === "blocked" ? "text-high-text" : "text-ink-2"}`}>
             {CI_STATUS[fix.ci_status]} · attempt {fix.attempts}
           </span>
         )}

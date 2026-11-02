@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from ...models.review import Review
 from ...models.user import User
+from ..agent.guardrails import hide_secrets
 from ..agent.tools import Context
 from ..github_service import call_github, get_token, send_github
 from ..notification_service import add_notification
@@ -103,7 +104,7 @@ def make_chunks(files):
         if "patch" not in file or name.endswith(SKIP_FILES):
             skipped.append(name)
             continue
-        for part in pack(file["patch"].splitlines(keepends=True)):
+        for part in pack(hide_secrets(file["patch"]).splitlines(keepends=True)):
             pieces.append("### " + name + "\n" + part + "\n\n")
 
     chunks = pack(pieces)
