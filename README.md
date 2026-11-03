@@ -179,6 +179,20 @@ API docs: http://localhost:8001/docs
 
 **Database changes:** edit a model → `alembic revision --autogenerate -m "what changed"` → `alembic upgrade head`.
 
+## Deploy
+
+**Backend: AWS EC2** (Ubuntu 24.04, `t3.small`, Mumbai), behind nginx with a Let's Encrypt certificate (certbot renews it).
+
+- Code in `/home/ubuntu/RepoSage`, pulled with a read-only GitHub deploy key. Packages in `Backend/venv`.
+- Runs as the `systemd` service `gitaudit` with **one** uvicorn worker on `127.0.0.1:8001`, because jobs and the sync run inside the process.
+- Only ports 22 (one IP), 80 and 443 are open; nginx forwards to port 8001.
+- Logs: `sudo journalctl -u gitaudit -f`. Restart after a change: `sudo systemctl restart gitaudit`.
+- Update by hand: `git pull`, `venv/bin/pip install -r requirements.txt`, `venv/bin/alembic upgrade head`, restart.
+
+**Frontend: Vercel** with Root Directory `Frontend`. `Frontend/vercel.json` sends every path to `index.html`, so a refresh on `/dashboard` works. Set `VITE_API_URL` (backend URL, no `/` at the end) and `VITE_GITHUB_CLIENT_ID` in Vercel, then redeploy, because Vite puts them into the build.
+
+**GitHub OAuth App:** Homepage and callback URL must be the Vercel URL.
+
 ## Notifications and background jobs
 
 **New repos and PRs reach the bell in two ways.** Both save to the same `seen_items` table, so one event never makes two notifications.
