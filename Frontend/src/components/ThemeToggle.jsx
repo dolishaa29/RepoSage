@@ -10,7 +10,6 @@ const ThemeToggle = () => {
     try {
       localStorage.setItem("theme", next ? "dark" : "light");
     } catch {
-      // private mode: theme just won't be remembered
     }
     setDark(next);
   };

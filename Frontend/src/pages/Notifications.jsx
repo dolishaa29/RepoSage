@@ -13,7 +13,6 @@ const Notifications = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // StrictMode runs this twice, and the second run would see everything as already read
     if (started.current) return;
     started.current = true;
 

@@ -1,7 +1,6 @@
 import Logo from './Logo';
 import ThemeToggle from './ThemeToggle';
 
-// Login and Register: dark brand panel on the left, form on the right
 const AuthLayout = ({ children }) => (
   <div className="min-h-screen flex flex-wrap bg-bg text-ink">
     <section className="dark flex-[1_1_420px] p-8 sm:p-14 bg-bg text-ink flex flex-col justify-between gap-12">

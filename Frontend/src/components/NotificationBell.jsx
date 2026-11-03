@@ -17,7 +17,6 @@ const NotificationBell = () => {
         const response = await axios.get(`${API}/notifications/unread`, { headers: { Authorization: `Bearer ${Cookies.get("token")}` } });
         setUnread(response.data.count);
       } catch {
-        // the bell is small, the page itself shows login and network errors
       }
     };
     load();
@@ -25,7 +24,6 @@ const NotificationBell = () => {
     return () => clearInterval(timer);
   }, [pathname]);
 
-  // the notifications page marks everything as read
   const count = pathname === "/notifications" ? 0 : unread;
 
   return (

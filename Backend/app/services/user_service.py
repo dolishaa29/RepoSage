@@ -55,7 +55,6 @@ def hash_reset_token(token: str):
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-# the answer is the same for every email, so nobody can check who has an account
 def forgot_password(db: Session, email: str, background: BackgroundTasks):
     if not email_service.is_configured():
         raise HTTPException(status_code=503, detail="Password reset email is not set up yet")

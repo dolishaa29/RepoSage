@@ -1,4 +1,3 @@
-// days: [{ day, reviews, fixes }]
 const ActivityChart = ({ days }) => {
   const max = Math.max(1, ...days.map((d) => Math.max(d.reviews, d.fixes)));
 

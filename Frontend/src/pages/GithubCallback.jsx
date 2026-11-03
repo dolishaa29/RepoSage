@@ -9,7 +9,6 @@ const GithubCallback = () => {
   const started = useRef(false);
 
   useEffect(() => {
-    // StrictMode runs this twice, and a GitHub code works only once
     if (started.current) return;
     started.current = true;
 

@@ -97,7 +97,6 @@ def add_embeddings(chunks: list[CodeChunk]):
         chunks[i].embedding = vectors[i]
 
 
-# the Gemini free tier allows 30,000 embedding tokens per minute, so wait and try again when it says stop
 def embed_batch(texts: list[str]):
     for attempt in range(EMBED_RETRIES):
         try:

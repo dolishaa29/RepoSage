@@ -9,7 +9,6 @@ from .guardrails import hide_secrets, restore_secrets
 
 MAX_LINES = 300
 MAX_FILES = 6
-# these files run code during install or build
 BLOCKED_FILES = {"dockerfile", "docker-compose.yml", "makefile", "package.json", ".npmrc", "setup.py", "pyproject.toml",
                  "requirements.txt", "gemfile", "pom.xml", "build.gradle", "cargo.toml", "go.mod"}
 

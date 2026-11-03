@@ -10,7 +10,6 @@ SECRET_PATTERNS = [
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----",
 ]
 
-# only for hiding, because a unit test can have a fake password = "testpass1"
 ASSIGNED_SECRET = r"""(?i:[\w-]*(?:password|passwd|secret|api_?key|token)[\w-]*["']?\s*[:=]\s*["'][^"'\s]{8,}["'])"""
 
 RISKY_COMMANDS = [
@@ -26,7 +25,6 @@ RISKY_COMMANDS = [
 HIDE_REGEX = re.compile("|".join(SECRET_PATTERNS + [ASSIGNED_SECRET]))
 
 
-# with a secrets dict every secret gets its own name, so edit_file can put the real one back
 def hide_secrets(text: str, secrets: dict | None = None):
     def hide(match):
         if secrets is None:

@@ -101,7 +101,6 @@ def approve_fix(db: Session, user: User, fix_id: int):
     return fix
 
 
-# a fix stores whole files, so approving it after the PR moved on would undo the newer commits
 def check_files_unchanged(token: str, fix: Fix, ref: str):
     for change in fix.changes:
         current = get_raw_file(token, fix.repo, change["file"], ref) or ""
@@ -119,7 +118,6 @@ def reject_fix(db: Session, user: User, fix_id: int):
 
 def check_tests(db: Session, user: User, fix_id: int):
     fix = get_my_fix(db, user, fix_id)
-    # the sync, the webhook and the button can all arrive together, only one may retry
     db.refresh(fix, with_for_update=True)
     if fix.ci_status != "running":
         return fix
@@ -157,7 +155,6 @@ def retry_fix(token: str, fix: Fix, log: str):
     result = run_agent(message, context)
 
     changes = {change["file"]: change for change in fix.changes}
-    # the user approved these files and this command, so anything new must not run in CI without them
     if any(path not in changes for path in context.changes):
         return "the AI wanted to add a new file"
     if result.test_command and result.test_command != fix.test_command:

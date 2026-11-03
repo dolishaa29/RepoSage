@@ -12,7 +12,7 @@ class DayCount(BaseModel):
     fixes: int
 
 class Activity(BaseModel):
-    kind: str          # "review" or "fix"
+    kind: str
     repo: str
     pr_number: int
     title: str

@@ -4,7 +4,6 @@ import { SearchIcon } from './Icons';
 
 const FILTERS = ["All", "Private", "Public"];
 
-// limit: show only the first N repos (dashboard), with a link to all of them
 const RepoList = ({ repos, showAccount, limit }) => {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("All");

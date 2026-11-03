@@ -76,7 +76,6 @@ def publish_summary(db: Session, user: User, review_id: int):
     return review
 
 
-# keeps the user's own text, and replaces only the part gitAudit added before
 def add_summary_to_body(body: str, pr_summary: str):
     before = body
     after = ""

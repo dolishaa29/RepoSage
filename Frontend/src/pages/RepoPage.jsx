@@ -74,14 +74,12 @@ const RepoPage = () => {
     load();
   }, [repo]);
 
-  // shows test results without a click, the server checks them by itself
   useEffect(() => {
     const refresh = async () => {
       try {
         const response = await axios.get(`${API}/fixes`, { ...authHeaders(), params: { repo } });
         setFixes(response.data);
       } catch {
-        // the next refresh tries again
       }
     };
     const timer = setInterval(refresh, REFRESH_FIXES_EVERY);

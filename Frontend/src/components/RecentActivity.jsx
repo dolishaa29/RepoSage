@@ -3,7 +3,6 @@ import { FixIcon, SearchIcon } from './Icons';
 
 const pill = (status) => (status === "passed" ? "bg-ok-soft text-ok-text" : status === "failed" ? "bg-high-soft text-high-text" : "bg-surface-2 text-ink-2");
 
-// items: [{ kind, repo, pr_number, title, status, created_at }]
 const RecentActivity = ({ items }) => {
   return (
     <div className="h-full p-5 bg-surface border border-line rounded-2xl flex flex-col gap-1.5">

@@ -26,7 +26,6 @@ const UserLayout = () => {
 
   return (
     <div className="min-h-screen bg-bg text-ink lg:flex">
-      {/* desktop: sidebar */}
       <aside className="hidden lg:flex w-64 shrink-0 sticky top-0 h-screen flex-col gap-7 px-4 py-6 bg-surface border-r border-line">
         <div className="px-2"><Logo /></div>
         <nav aria-label="Main" className="flex flex-col gap-1">
@@ -49,7 +48,6 @@ const UserLayout = () => {
         </div>
       </aside>
 
-      {/* phone: top bar */}
       <header className="lg:hidden sticky top-0 z-20 h-16 px-4 flex items-center justify-between bg-surface border-b border-line">
         <Logo />
         <div className="flex items-center gap-2">
@@ -65,7 +63,6 @@ const UserLayout = () => {
         <Outlet />
       </main>
 
-      {/* phone: bottom tabs */}
       <nav aria-label="Main" className="lg:hidden fixed bottom-0 inset-x-0 z-20 h-16 grid grid-cols-2 bg-surface border-t border-line">
         {NAV.map(({ to, label, Icon }) => (
           <NavLink key={to} to={to} className={tabLink}><Icon size={20} />{label}</NavLink>

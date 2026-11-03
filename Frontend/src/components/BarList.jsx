@@ -1,4 +1,3 @@
-// rows: [{ label, value, color }], color is a bg-* class
 const BarList = ({ title, rows, children }) => {
   const max = Math.max(1, ...rows.map((row) => row.value));
 

@@ -1,4 +1,3 @@
-// dot: a bg-* class, for example "bg-accent"
 const StatCard = ({ label, value, note, dot }) => {
   return (
     <div className="p-5 bg-surface border border-line rounded-2xl flex flex-col gap-1.5">

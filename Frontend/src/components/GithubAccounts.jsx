@@ -2,7 +2,6 @@ import GithubButton from './GithubButton';
 
 const AVATAR = ["bg-accent", "bg-teal"];
 
-// accounts: [{ id, username }]
 const GithubAccounts = ({ accounts, onRemove }) => {
   return (
     <div className="h-full p-5 bg-surface border border-line rounded-2xl flex flex-col gap-3">

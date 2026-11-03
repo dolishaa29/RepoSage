@@ -1,9 +1,7 @@
 @import "tailwindcss";
 
-/* dark theme = "dark" class on <html> */
 @custom-variant dark (&:where(.dark, .dark *));
 
-/* colors come from the variables below, so one class works in both themes */
 @theme inline {
   --font-sans: "Inter", system-ui, sans-serif;
   --font-display: "Space Grotesk", "Inter", sans-serif;

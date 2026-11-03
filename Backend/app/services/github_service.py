@@ -109,7 +109,6 @@ def get_pulls(user: User, repo: str):
     return result
 
 
-# picks the linked account that can open this repo
 def get_token(user: User, repo: str):
     if len(user.github_accounts) == 0:
         raise HTTPException(status_code=400, detail="Connect GitHub first")

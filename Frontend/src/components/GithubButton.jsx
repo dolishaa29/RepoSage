@@ -5,7 +5,6 @@ const GITHUB_CLIENT_ID = import.meta.env.VITE_GITHUB_CLIENT_ID;
 
 const GithubButton = ({ label, className = '' }) => {
   const goToGithub = () => {
-    // the account picker is only needed when linking another account, not on every login
     const picker = Cookies.get("token") ? "&prompt=select_account" : "";
     const state = crypto.randomUUID();
     sessionStorage.setItem('github_state', state);

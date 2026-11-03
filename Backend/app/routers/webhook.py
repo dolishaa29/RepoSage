@@ -28,7 +28,6 @@ def github_webhook(
     return {"ok": True}
 
 
-# for a cron job on hosts where the server sleeps
 @router.post("/internal/sync", status_code=202)
 def run_sync(background: BackgroundTasks, x_cron_secret: str = Header(default="")):
     secret = os.getenv("CRON_SECRET")

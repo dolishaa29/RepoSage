@@ -8,7 +8,6 @@ depends_on = None
 
 
 def upgrade():
-    # old reviews keep these empty
     op.add_column("reviews", sa.Column("risk", sa.String, nullable=True))
     op.add_column("reviews", sa.Column("pr_summary", sa.Text, nullable=True))
 
