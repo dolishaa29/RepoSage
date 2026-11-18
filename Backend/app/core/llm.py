@@ -8,7 +8,9 @@ from langchain_google_genai.chat_models import GoogleRateLimitError
 
 load_dotenv()
 
-model = init_chat_model("google_genai:" + os.getenv("GEMINI_MODEL", "gemini-2.5-flash"))
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+
+model = init_chat_model("google_genai:" + MODEL_NAME)
 
 retry = ModelRetryMiddleware(max_retries=4, retry_on=(GoogleRateLimitError,), on_failure="error", initial_delay=15, max_delay=60)
 

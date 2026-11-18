@@ -10,9 +10,7 @@ def get_pr(token: str, repo: str, pr_number: int):
 
 
 def branch_sha(token: str, repo: str, branch: str):
-    sha = call_github(token, f"/repos/{repo}/branches/{branch}")["commit"]["sha"]
-    return sha
-
+    return call_github(token, f"/repos/{repo}/branches/{branch}")["commit"]["sha"]
 
 
 def commit_files(token: str, repo: str, branch: str, files: dict, message: str):
@@ -26,7 +24,6 @@ def commit_files(token: str, repo: str, branch: str, files: dict, message: str):
     send_github(token, "PATCH", f"/repos/{repo}/git/refs/heads/{branch}", {"sha": new_commit["sha"]})
 
 
-
 def create_branch(token: str, repo: str, branch: str, sha: str):
     send_github(token, "POST", f"/repos/{repo}/git/refs", {"ref": f"refs/heads/{branch}", "sha": sha})
 
@@ -38,12 +35,8 @@ def delete_branch(token: str, repo: str, branch: str):
         pass
 
 
-
-
 def open_pr(token: str, repo: str, title: str, head: str, base: str, body: str):
-    pr = send_github(token, "POST", f"/repos/{repo}/pulls", {"title": title, "head": head, "base": base, "body": body})
-    return pr
-
+    return send_github(token, "POST", f"/repos/{repo}/pulls", {"title": title, "head": head, "base": base, "body": body})
 
 
 def latest_run(token: str, repo: str, branch: str):
@@ -52,10 +45,9 @@ def latest_run(token: str, repo: str, branch: str):
     return runs[0] if runs else None
 
 
-
 def test_log(token: str, repo: str, run_id: int):
     jobs = call_github(token, f"/repos/{repo}/actions/runs/{run_id}/jobs")["jobs"]
     if len(jobs) == 0:
         return "The test run had no jobs, so there is no log. Check the workflow and the test command."
-    log = get_github_text(token, f"/repos/{repo}/actions/jobs/{jobs[0]['id']}/logs")[-4000:]
-    return log
+    log = get_github_text(token, f"/repos/{repo}/actions/jobs/{jobs[0]['id']}/logs")
+    return log[-4000:]  # only the end of the log, where the error is

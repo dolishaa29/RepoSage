@@ -1,12 +1,10 @@
-import hmac
 import json
-import os
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, Request
 from sqlalchemy.orm import Session
 
 from ..core.db import get_db
-from ..services import sync_service, webhook_service
+from ..services import webhook_service
 
 router = APIRouter(tags=["Webhooks"])
 
@@ -27,11 +25,3 @@ def github_webhook(
     webhook_service.handle_event(db, background, x_github_event, json.loads(body))
     return {"ok": True}
 
-
-@router.post("/internal/sync", status_code=202)
-def run_sync(background: BackgroundTasks, x_cron_secret: str = Header(default="")):
-    secret = os.getenv("CRON_SECRET")
-    if not secret or not hmac.compare_digest(secret, x_cron_secret):
-        raise HTTPException(status_code=401, detail="Invalid secret")
-    background.add_task(sync_service.sync_all)
-    return {"ok": True}

@@ -63,7 +63,6 @@ def run_agent(message: str, context: Context):
         result = output["structured_response"]
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"AI fix failed: {e}")
-
     return result
 
 
@@ -187,7 +186,6 @@ def get_my_fix(db: Session, user: User, fix_id: int):
     if fix is None:
         raise HTTPException(status_code=404, detail="Fix not found")
     return fix
-
 
 
 def get_pending_fix(db: Session, user: User, fix_id: int):

@@ -1,6 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from ...core.llm import MODEL_NAME
 from ...models.review import Review
 from ...models.user import User
 from ..agent.guardrails import hide_secrets
@@ -48,7 +49,7 @@ def review_pr(db: Session, user: User, repo: str, pr_number: int):
         repo=repo,
         pr_number=pr_number,
         pr_title=pr["title"],
-        ai="gemini · langgraph agents",
+        ai=MODEL_NAME,
         summary=result.summary,
         risk=result.risk,
         pr_summary=f"### What changed\n{result.what_changed}\n\n### What to test\n{result.what_to_test}",

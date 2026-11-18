@@ -2,7 +2,6 @@ import os
 import uuid
 
 os.environ["GITHUB_WEBHOOK_SECRET"] = "test-webhook-secret"
-os.environ["CRON_SECRET"] = "test-cron-secret"
 os.environ["SYNC_EVERY_MINUTES"] = "0"
 
 import pytest

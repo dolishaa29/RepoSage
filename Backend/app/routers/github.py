@@ -1,7 +1,4 @@
-import os
-
-from fastapi import APIRouter, BackgroundTasks, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, BackgroundTasks, Depends
 from sqlalchemy.orm import Session
 
 from ..core.auth import auth
@@ -14,13 +11,6 @@ from ..services import github_service, job_service
 from ..services.agent import code_index
 
 router = APIRouter(prefix="/github", tags=["GitHub"])
-
-FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5174")
-
-
-@router.get("/callback")
-def callback(request: Request):
-    return RedirectResponse(f"{FRONTEND_URL}/?{request.url.query}")
 
 
 @router.post("/login", response_model=TokenResponse)

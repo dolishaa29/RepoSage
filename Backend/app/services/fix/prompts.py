@@ -6,7 +6,6 @@ from ...schemas.fix import FixResult
 from ..agent.tools import EDIT_TOOLS, Context
 
 
-
 SYSTEM_PROMPT = """You are a senior software engineer who fixes one problem in a GitHub repo.
 
 How to work:

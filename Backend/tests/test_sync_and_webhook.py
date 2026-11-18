@@ -130,10 +130,3 @@ def test_broken_retry_stops_after_the_limit(db, user, notes):
     assert db.get(Fix, fix_id).ci_status == "failed"
     assert notes()[-1].startswith("Tests failed")
 
-
-def test_cron_needs_the_secret(client):
-    assert client.post("/internal/sync").status_code == 401
-    assert client.post("/internal/sync", headers={"X-Cron-Secret": "bad"}).status_code == 401
-    with patch.object(sync_service, "sync_all") as sync_all:
-        assert client.post("/internal/sync", headers={"X-Cron-Secret": "test-cron-secret"}).status_code == 202
-    sync_all.assert_called_once()

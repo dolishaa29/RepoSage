@@ -25,7 +25,7 @@ class ReviewResult(BaseModel):
 
 
 class ReviewDto(BaseModel):
-    repo: str        
+    repo: str
     pr_number: int
 
 

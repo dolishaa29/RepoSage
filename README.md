@@ -128,7 +128,7 @@ The database needs the `vector` extension (Neon has it; migration `0004` turns i
 ```bash
 cd Backend
 python -m venv venv && venv\Scripts\activate
-pip install -r requirements.txt
+pip install -r requirements-dev.txt
 alembic upgrade head
 uvicorn app.main:app --reload --port 8001
 ```
@@ -146,7 +146,6 @@ GEMINI_MODEL=gemini-2.5-flash
 FRONTEND_URL=http://localhost:5174
 SYNC_EVERY_MINUTES=3
 GITHUB_WEBHOOK_SECRET=<only for the webhook>
-CRON_SECRET=<only for the cron job>
 SMTP_HOST=<only for password reset email>
 SMTP_PORT=587
 SMTP_USER=<smtp user>
@@ -157,7 +156,7 @@ MAIL_FROM=<sender address>
 `SYNC_EVERY_MINUTES` is how often the server looks for new repos, new PRs and test results (`0` turns it off).
 
 `FRONTEND_URL` is the only origin CORS allows, and the GitHub callback sends users back to it. Set it to the real frontend URL when you deploy.
-
+`FRONTEND_URL` is the only origin CORS allows, and password reset links point to it. Set it to the real frontend URL when you deploy.
 **3. Frontend**
 
 ```bash
@@ -175,7 +174,7 @@ VITE_GITHUB_CLIENT_ID=<client id>
 
 API docs: http://localhost:8001/docs
 
-**Tests:** `cd Backend` → `pytest`. GitHub and Gemini are mocked, so nothing is sent to them. The tests use the database in `DATABASE_URL`: they make temporary `pytest-...@example.com` users and remove them at the end.
+**Tests:** `cd Backend` → `pip install -r requirements-dev.txt` (adds pytest) → `pytest`. GitHub and Gemini are mocked, so nothing is sent to them. The tests use the database in `DATABASE_URL`: they make temporary `pytest-...@example.com` users and remove them at the end.
 
 **Database changes:** edit a model → `alembic revision --autogenerate -m "what changed"` → `alembic upgrade head`.
 
@@ -207,8 +206,6 @@ API docs: http://localhost:8001/docs
 - Events: Repository, Pull request, Workflow run
 - Install it on your account with "All repositories". To test locally, point the URL at an ngrok tunnel to port 8001.
 
-**Cron job (for hosts where the server sleeps):** call `POST /internal/sync` every 10-15 minutes with the header `X-Cron-Secret: <CRON_SECRET>`. Run the server with one worker, or set `SYNC_EVERY_MINUTES=0` and use only the cron job.
-
 **Background jobs:** review, fix and indexing answer at once with a job, and the page asks `GET /jobs/{id}` every 3 seconds. They keep running if you close the page, and the result shows when you come back. A failed job also makes a notification. Jobs run inside the server process, so a restart stops the running ones; they show as failed after 45 minutes.
 
 ## API
@@ -229,7 +226,7 @@ API docs: http://localhost:8001/docs
 | `POST` | `/reviews/{id}/publish-summary` | add the AI summary to the PR description on GitHub (your own text stays) |
 | `POST` / `GET` | `/fixes` | start a fix job / saved fixes |
 | `GET` | `/jobs/{id}` | status and result of a background job |
-| `POST` | `/webhooks/github`, `/internal/sync` | GitHub events (signed) / cron sync (secret header) |
+| `POST` | `/webhooks/github` | GitHub events (signed) |
 | `POST` | `/fixes/{id}/approve`, `/reject`, `/check` | open PR / reject / check CI and retry |
 
 GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md).
