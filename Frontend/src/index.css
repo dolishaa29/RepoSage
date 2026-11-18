@@ -3,9 +3,13 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme inline {
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-display: "Space Grotesk", "Inter", sans-serif;
+  --font-sans: "Lexend", system-ui, sans-serif;
+  --font-display: "Lexend", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --shadow-clay: var(--clay-raise);
+  --shadow-clay-sm: var(--clay-raise-sm);
+  --shadow-clay-in: var(--clay-inset);
 
   --color-bg: var(--bg);
   --color-surface: var(--surface);
@@ -21,6 +25,15 @@
   --color-teal: var(--teal);
   --color-teal-soft: var(--teal-soft);
   --color-teal-text: var(--teal-text);
+  --color-violet: var(--violet);
+  --color-violet-soft: var(--violet-soft);
+  --color-violet-text: var(--violet-text);
+  --color-lime-soft: var(--lime-soft);
+  --color-lime-text: var(--lime-text);
+  --color-sky-soft: var(--sky-soft);
+  --color-sky-text: var(--sky-text);
+  --color-peach-soft: var(--peach-soft);
+  --color-peach-text: var(--peach-text);
   --color-ok-soft: var(--ok-soft);
   --color-ok-text: var(--ok-text);
   --color-high: var(--high);
@@ -35,64 +48,97 @@
   --color-code: var(--code);
 }
 
+/* Light theme: soft blue-gray "clay" with pastel bento colors */
 :root {
   color-scheme: light;
-  --bg: #f5f6fa;
-  --surface: #ffffff;
-  --surface-2: #eef0f6;
-  --line: #e2e5ee;
-  --ink: #0e1124;
-  --ink-2: #454b66;
-  --muted: #646a88;
-  --accent: #6d4aff;
+  --bg: #e9eef5;
+  --surface: #edf1f7;
+  --surface-2: #dfe5ee;
+  --line: #d3dbe6;
+  --ink: #1f2a3a;
+  --ink-2: #3d4a5c;
+  --muted: #4f5d70;
+
+  --accent: #0f7c72;
   --on-accent: #ffffff;
-  --accent-soft: #efeaff;
-  --accent-text: #4f2fd6;
-  --teal: #0f9f92;
-  --teal-soft: #e2f6f3;
-  --teal-text: #0b6e66;
-  --ok-soft: #e3f6e8;
-  --ok-text: #17603a;
-  --high: #dc2626;
-  --high-soft: #fde8e8;
-  --high-text: #9b1c1c;
-  --med: #d97706;
-  --med-soft: #fdf0dc;
-  --med-text: #8a4b06;
-  --low: #8a90ab;
-  --invert: #0e1124;
+  --accent-soft: #d3ebe7;
+  --accent-text: #0f6b62;
+  --teal: #2aa598;
+  --teal-soft: #d3efe9;
+  --teal-text: #0d6a60;
+  --violet: #7f6ae8;
+  --violet-soft: #e4def8;
+  --violet-text: #3d2a9c;
+  --lime-soft: #e2f1c8;
+  --lime-text: #3d5410;
+  --sky-soft: #d8e7f8;
+  --sky-text: #1a4f8a;
+  --peach-soft: #f7e0d6;
+  --peach-text: #7a2e10;
+
+  --ok-soft: #dcefd0;
+  --ok-text: #2f5a12;
+  --high: #e5603b;
+  --high-soft: #f7e0d6;
+  --high-text: #8f2f12;
+  --med: #e0a030;
+  --med-soft: #f6ead0;
+  --med-text: #7a5600;
+  --low: #7f8aa3;
+  --invert: #1f2a3a;
   --on-invert: #ffffff;
-  --code: #ffffff;
+  --code: #f4f7fb;
+
+  /* raised = sticks out, inset = pressed in */
+  --clay-raise: 10px 10px 24px #c8d1de, -10px -10px 24px #ffffff;
+  --clay-raise-sm: 5px 5px 12px #c8d1de, -5px -5px 12px #ffffff;
+  --clay-inset: inset 4px 4px 10px #c8d1de, inset -4px -4px 10px #ffffff;
 }
 
+/* Dark theme: deep blue-gray clay with brighter pastels */
 .dark {
   color-scheme: dark;
-  --bg: #0a0d1a;
-  --surface: #121629;
-  --surface-2: #1a1f37;
-  --line: #262c4a;
-  --ink: #eef0ff;
-  --ink-2: #b6bbd8;
-  --muted: #8f95b8;
-  --accent: #8b6dff;
-  --on-accent: #0a0d1a;
-  --accent-soft: #231c4d;
-  --accent-text: #bba9ff;
-  --teal: #0fa898;
-  --teal-soft: #0d2e2e;
-  --teal-text: #5eead4;
-  --ok-soft: #12301f;
-  --ok-text: #86efac;
-  --high: #f87171;
-  --high-soft: #3a1518;
-  --high-text: #fca5a5;
-  --med: #fbbf24;
-  --med-soft: #352610;
-  --med-text: #fcd34d;
-  --low: #8f95b8;
-  --invert: #eef0ff;
-  --on-invert: #0a0d1a;
-  --code: #0d1022;
+  --bg: #1f2433;
+  --surface: #222838;
+  --surface-2: #1a1f2c;
+  --line: #2f3648;
+  --ink: #e8ecf4;
+  --ink-2: #c3cad8;
+  --muted: #a9b2c5;
+
+  --accent: #5fd3c4;
+  --on-accent: #0c2421;
+  --accent-soft: #1c3a3a;
+  --accent-text: #7fe0d3;
+  --teal: #5fd3c4;
+  --teal-soft: #1c3a3a;
+  --teal-text: #7fe0d3;
+  --violet: #a596ff;
+  --violet-soft: #2d2a52;
+  --violet-text: #d2c9ff;
+  --lime-soft: #263420;
+  --lime-text: #c6eb8a;
+  --sky-soft: #1f2e45;
+  --sky-text: #aacff7;
+  --peach-soft: #3b2b28;
+  --peach-text: #ffc2a8;
+
+  --ok-soft: #263420;
+  --ok-text: #c6eb8a;
+  --high: #ff8a66;
+  --high-soft: #3b2b28;
+  --high-text: #ffc2a8;
+  --med: #f2c14e;
+  --med-soft: #3a3220;
+  --med-text: #f5d27a;
+  --low: #8a93a8;
+  --invert: #e8ecf4;
+  --on-invert: #1f2433;
+  --code: #191d29;
+
+  --clay-raise: 10px 10px 24px #161a25, -10px -10px 24px #293042;
+  --clay-raise-sm: 5px 5px 12px #161a25, -5px -5px 12px #293042;
+  --clay-inset: inset 4px 4px 10px #161a25, inset -4px -4px 10px #293042;
 }
 
 body {
