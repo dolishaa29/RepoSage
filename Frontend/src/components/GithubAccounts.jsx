@@ -1,8 +1,11 @@
 import GithubButton from './GithubButton';
+import { goToGithub } from '../githubOAuth';
 
 const AVATAR = ["bg-accent", "bg-teal"];
 
-const GithubAccounts = ({ accounts, onRemove }) => {
+const GithubAccounts = ({ accounts }) => {
+  const onlyLogin = accounts.length === 1;
+
   return (
     <div className="h-full p-5 bg-surface border border-line rounded-2xl flex flex-col gap-3">
       <h2 className="font-display text-lg font-bold">GitHub accounts</h2>
@@ -14,7 +17,9 @@ const GithubAccounts = ({ accounts, onRemove }) => {
           <a href={`https://github.com/${account.username}`} target="_blank" rel="noreferrer" className="flex-1 min-w-0 text-sm font-semibold break-all">
             @{account.username}
           </a>
-          <button onClick={() => onRemove(account)} className="min-h-11 px-2 text-sm font-semibold text-high-text">Remove</button>
+          {onlyLogin && (
+            <button onClick={() => goToGithub()} className="min-h-11 px-2 text-sm font-semibold text-accent-text">Reconnect</button>
+          )}
         </div>
       ))}
       {accounts.length === 0 && <p className="text-sm text-muted">No account connected yet.</p>}

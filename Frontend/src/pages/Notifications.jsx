@@ -24,7 +24,7 @@ const Notifications = () => {
       } catch (err) {
         if (err.response?.status === 401) {
           Cookies.remove("token");
-          navigate("/login");
+          navigate("/");
           return;
         }
         setError(err.response?.data?.detail || "Couldn't load your notifications.");

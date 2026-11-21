@@ -1,4 +1,5 @@
-from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from ..core.auth import auth
@@ -11,6 +12,13 @@ from ..services import github_service, job_service
 from ..services.agent import code_index
 
 router = APIRouter(prefix="/github", tags=["GitHub"])
+
+
+@router.get("/callback", include_in_schema=False)
+def github_callback(request: Request):
+    query = request.url.query
+    target = github_service.FRONTEND_CALLBACK_URL
+    return RedirectResponse(f"{target}?{query}" if query else target, status_code=303)
 
 
 @router.post("/login", response_model=TokenResponse)

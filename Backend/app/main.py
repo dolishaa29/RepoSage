@@ -35,3 +35,8 @@ app.include_router(stats.router)
 app.include_router(notification.router)
 app.include_router(job.router)
 app.include_router(webhook.router)
+
+
+@app.get("/health", include_in_schema=False)
+def health():
+    return {"status": "ok"}

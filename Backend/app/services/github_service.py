@@ -11,6 +11,10 @@ from ..models.user import User
 
 CLIENT_ID = os.getenv("GITHUB_CLIENT_ID")
 CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET")
+FRONTEND_CALLBACK_URL = os.getenv("FRONTEND_URL", "http://localhost:5174").rstrip("/") + "/"
+LOCAL_FRONTEND_URL = "http://localhost:5174/"
+LOCAL_GITHUB_CALLBACK_URL = "http://localhost:8001/github/callback"
+CALLBACK_URL = LOCAL_GITHUB_CALLBACK_URL if FRONTEND_CALLBACK_URL == LOCAL_FRONTEND_URL else FRONTEND_CALLBACK_URL
 TIMEOUT = 30
 MAX_REPO_PAGES = 5
 
@@ -23,7 +27,7 @@ def login(db: Session, code: str):
     if account is None:
         email = get_email(token)
         if db.query(User).filter(func.lower(User.email) == email).first():
-            raise HTTPException(status_code=400, detail="Email already registered. Log in with your password, then connect GitHub")
+            raise HTTPException(status_code=400, detail="This email belongs to an existing RepoSage account. Use a GitHub account already linked to it.")
         user = User(name=github_user["name"] or github_user["login"], email=email)
         db.add(user)
         db.flush()
@@ -51,11 +55,13 @@ def connect(db: Session, user: User, code: str):
 
 
 def remove_account(db: Session, user: User, account_id: int):
-    account = db.query(GithubAccount).filter(GithubAccount.id == account_id, GithubAccount.user_id == user.id).first()
+    db.query(User.id).filter(User.id == user.id).with_for_update().one()
+    accounts = db.query(GithubAccount).filter(GithubAccount.user_id == user.id)
+    account = accounts.filter(GithubAccount.id == account_id).first()
     if account is None:
         raise HTTPException(status_code=404, detail="GitHub account not found")
-    if user.hashed_password is None and len(user.github_accounts) == 1:
-        raise HTTPException(status_code=400, detail="This is your only way to log in, so it cannot be removed")
+    if accounts.count() == 1:
+        raise HTTPException(status_code=400, detail="Keep at least one GitHub account connected")
     db.delete(account)
     db.commit()
     db.refresh(user)
@@ -143,7 +149,12 @@ def get_github_token(code: str):
     res = github_request(
         "POST",
         "https://github.com/login/oauth/access_token",
-        data={"client_id": CLIENT_ID, "client_secret": CLIENT_SECRET, "code": code},
+        data={
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET,
+            "code": code,
+            "redirect_uri": CALLBACK_URL,
+        },
         headers={"Accept": "application/json"},
     )
     token = res.json().get("access_token")

@@ -3,7 +3,7 @@ import Cookies from 'js-cookie';
 import Logo from './Logo';
 import NotificationBell from './NotificationBell';
 import ThemeToggle from './ThemeToggle';
-import { BookIcon, GridIcon, LogoutIcon } from './Icons';
+import { BookIcon, GridIcon } from './Icons';
 
 const NAV = [
   { to: "/dashboard", label: "Dashboard", Icon: GridIcon },
@@ -19,10 +19,18 @@ const tabLink = ({ isActive }) =>
 const UserLayout = () => {
   const navigate = useNavigate();
 
-  const logout = () => {
-    Cookies.remove("token");
-    navigate("/login");
+  const logOut = () => {
+    Cookies.remove('token');
+    sessionStorage.removeItem('github_state');
+    sessionStorage.removeItem('github_intent');
+    navigate('/', { replace: true });
   };
+
+  const logoutButton = (
+    <button type="button" onClick={logOut} className="min-h-11 px-2 rounded-xl text-sm font-semibold text-ink-2 hover:bg-surface-2">
+      Log out
+    </button>
+  );
 
   return (
     <div className="min-h-screen bg-bg text-ink lg:flex">
@@ -41,9 +49,7 @@ const UserLayout = () => {
           <div className="flex items-center gap-2">
             <NotificationBell />
             <ThemeToggle />
-            <button onClick={logout} className="flex-1 min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line text-sm font-semibold text-high-text hover:bg-high-soft">
-              <LogoutIcon size={16} /> Sign out
-            </button>
+            {logoutButton}
           </div>
         </div>
       </aside>
@@ -53,9 +59,7 @@ const UserLayout = () => {
         <div className="flex items-center gap-2">
           <NotificationBell />
           <ThemeToggle />
-          <button onClick={logout} aria-label="Sign out" className="w-11 h-11 flex items-center justify-center rounded-xl border border-line text-high-text">
-            <LogoutIcon />
-          </button>
+          {logoutButton}
         </div>
       </header>
 

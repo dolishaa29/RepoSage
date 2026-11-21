@@ -8,6 +8,19 @@ depends_on = None
 
 
 def upgrade():
+    if not sa.inspect(op.get_bind()).has_table("github_accounts"):
+        op.create_table(
+            "github_accounts",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
+            sa.Column("github_id", sa.BigInteger(), nullable=False),
+            sa.Column("username", sa.String(), nullable=False),
+            sa.Column("encrypted_token", sa.String(), nullable=False),
+            sa.UniqueConstraint("user_id", name="github_accounts_user_id_key"),
+        )
+        op.create_index("ix_github_accounts_id", "github_accounts", ["id"])
+        op.create_index("ix_github_accounts_github_id", "github_accounts", ["github_id"], unique=True)
+
     op.drop_constraint("github_accounts_user_id_key", "github_accounts", type_="unique")
     op.create_index("ix_github_accounts_user_id", "github_accounts", ["user_id"])
 

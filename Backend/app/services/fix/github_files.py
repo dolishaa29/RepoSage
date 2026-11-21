@@ -50,4 +50,4 @@ def test_log(token: str, repo: str, run_id: int):
     if len(jobs) == 0:
         return "The test run had no jobs, so there is no log. Check the workflow and the test command."
     log = get_github_text(token, f"/repos/{repo}/actions/jobs/{jobs[0]['id']}/logs")
-    return log[-4000:]  # only the end of the log, where the error is
+    return log[-4000:]  

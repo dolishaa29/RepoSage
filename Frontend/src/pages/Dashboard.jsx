@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -20,23 +20,23 @@ const Dashboard = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleError = (err, fallback) => {
+  const handleError = useCallback((err, fallback) => {
     if (err.response?.status === 401) {
       Cookies.remove("token");
-      navigate("/login");
+      navigate("/");
       return;
     }
     setError(err.response?.data?.detail || fallback);
-  };
+  }, [navigate]);
 
-  const loadRepos = async (accounts) => {
+  const loadRepos = useCallback(async (accounts) => {
     if (accounts.length === 0) {
       setRepos([]);
       return;
     }
     const response = await axios.get(`${API}/github/repos`, authHeaders());
     setRepos(response.data);
-  };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -53,18 +53,7 @@ const Dashboard = () => {
       }
     };
     load();
-  }, []);
-
-  const removeAccount = async (account) => {
-    if (!confirm(`Remove @${account.username} from gitAudit?`)) return;
-    try {
-      const response = await axios.delete(`${API}/github/accounts/${account.id}`, authHeaders());
-      setUser(response.data);
-      await loadRepos(response.data.github_accounts);
-    } catch (err) {
-      handleError(err, "Couldn't remove the account.");
-    }
-  };
+  }, [handleError, loadRepos]);
 
   if (!user || !stats) return <p className="p-10 text-center text-muted">{error || "Loading..."}</p>;
 
@@ -116,7 +105,7 @@ const Dashboard = () => {
         <div className="lg:col-span-2 min-w-0">
           <RecentActivity items={stats.recent} />
         </div>
-        <GithubAccounts accounts={user.github_accounts} onRemove={removeAccount} />
+        <GithubAccounts accounts={user.github_accounts} />
       </section>
 
       {user.github_accounts.length > 0 && <RepoList repos={repos} showAccount={user.github_accounts.length > 1} limit={6} />}

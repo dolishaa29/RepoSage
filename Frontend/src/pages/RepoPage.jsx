@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import Cookies from 'js-cookie';
@@ -43,14 +43,14 @@ const RepoPage = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handleError = (err, fallback) => {
+  const handleError = useCallback((err, fallback) => {
     if (err.response?.status === 401) {
       Cookies.remove("token");
-      navigate("/login");
+      navigate("/");
       return;
     }
     setError(err.response?.data?.detail || fallback);
-  };
+  }, [navigate]);
 
   useEffect(() => {
     const load = async () => {
@@ -72,7 +72,7 @@ const RepoPage = () => {
       }
     };
     load();
-  }, [repo]);
+  }, [handleError, repo]);
 
   useEffect(() => {
     const refresh = async () => {
@@ -239,7 +239,7 @@ const PrSummary = ({ review }) => {
     } catch (err) {
       if (err.response?.status === 401) {
         Cookies.remove("token");
-        navigate("/login");
+        navigate("/");
         return;
       }
       setMessage(err.response?.data?.detail || "Couldn't update the PR description.");
@@ -285,7 +285,7 @@ const FixBox = ({ repo, prNumber, finding, fixes, setFixes }) => {
     } catch (err) {
       if (err.response?.status === 401) {
         Cookies.remove("token");
-        navigate("/login");
+        navigate("/");
         return;
       }
       setMessage(err.response?.data?.detail || "Something went wrong. Please try again.");

@@ -1,15 +1,11 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Userpri from './components/Userpri'
 import UserLayout from './components/UserLayout'
 import GithubCallback from './pages/GithubCallback'
-import Login from './pages/Login'
-import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import RepoPage from './pages/RepoPage'
 import Repos from './pages/Repos'
 import Notifications from './pages/Notifications'
-import ForgotPassword from './pages/ForgotPassword'
-import ResetPassword from './pages/ResetPassword'
 
 function App() {
   return (
@@ -17,10 +13,7 @@ function App() {
       <BrowserRouter>
       <Routes>
         <Route path='/' element={<GithubCallback/>}/>
-        <Route path='/login' element={<Login/>}/>
-        <Route path='/register' element={<Register/>}/>
-        <Route path='/forgot-password' element={<ForgotPassword/>}/>
-        <Route path='/reset-password' element={<ResetPassword/>}/>
+        <Route path='/login' element={<Navigate to='/' replace />}/>
 
         <Route element={<Userpri><UserLayout /></Userpri>}>
           <Route path='/dashboard' element={<Dashboard/>}/>

@@ -1,22 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
-
-
-class RegisterDto(BaseModel):
-    name: str = Field(min_length=1)
-    email: EmailStr
-    password: str = Field(min_length=6)
-
-class LoginDto(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class ForgotPasswordDto(BaseModel):
-    email: EmailStr
-
-class ResetPasswordDto(BaseModel):
-    token: str
-    password: str = Field(min_length=6)
+from pydantic import BaseModel, ConfigDict
 
 
 class GithubAccountResponse(BaseModel):

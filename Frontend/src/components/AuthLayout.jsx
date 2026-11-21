@@ -4,7 +4,7 @@ import ThemeToggle from './ThemeToggle';
 const AuthLayout = ({ children }) => (
   <div className="min-h-screen flex flex-wrap bg-bg text-ink">
     <section className="dark flex-[1_1_420px] p-8 sm:p-14 bg-bg text-ink flex flex-col justify-between gap-12">
-      <Logo to="/login" />
+      <Logo to="/" />
       <div className="max-w-md flex flex-col gap-5">
         <h1 className="font-display text-4xl sm:text-5xl font-bold leading-[1.05] tracking-tight">
           Find the bugs.<br />Fix them.<br /><span className="text-accent-text">Open the PR.</span>

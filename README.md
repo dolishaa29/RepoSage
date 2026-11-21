@@ -80,7 +80,7 @@ flowchart LR
 | Backend | Python, FastAPI, SQLAlchemy, Alembic |
 | Database | PostgreSQL (Neon) |
 | AI | LangChain + LangGraph + Google Gemini, pgvector for code search |
-| Auth | JWT, Argon2 password hashing, Fernet-encrypted GitHub tokens |
+| Auth | GitHub OAuth, JWT, Fernet-encrypted GitHub tokens |
 | Frontend | React 19, Vite, Tailwind CSS 4, React Router, Axios |
 
 ## Project structure
@@ -95,7 +95,6 @@ Backend/
     ├── schemas/           request / response shapes
     ├── routers/           user, github, review, fix, stats, notification, job, webhook
     └── services/
-        ├── user_service.py
         ├── github_service.py   GitHub OAuth, accounts, get_token(user, repo)
         ├── stats_service.py    numbers for the dashboard
         ├── notification_service.py   save and read notifications
@@ -113,13 +112,13 @@ Frontend/src/
 ├── components/            UserLayout (sidebar + phone tabs), AuthLayout, Userpri (private route), GithubButton,
 │                          Logo, Icons, ThemeToggle, NotificationBell,
 │                          dashboard parts: StatCard, BarList, ActivityChart, RecentActivity, GithubAccounts, RepoList
-└── pages/                 Login, Register, GithubCallback, Dashboard, Repos, RepoPage, Notifications, ForgotPassword, ResetPassword
+└── pages/                 GithubCallback, Dashboard, Repos, RepoPage, Notifications
 ```
 
 ## Run locally
 
 **1. GitHub OAuth App:** GitHub → Settings → Developer settings → OAuth Apps → New.
-Set Homepage URL and Authorization callback URL to `http://localhost:5174`, and leave "Expire user access tokens" unticked.
+Set the Homepage URL to `http://localhost:5174` and add `http://localhost:8001/github/callback` as an Authorization callback URL, and leave "Expire user access tokens" unticked.
 
 The database needs the `vector` extension (Neon has it; migration `0004` turns it on).
 
@@ -146,17 +145,11 @@ GEMINI_MODEL=gemini-2.5-flash
 FRONTEND_URL=http://localhost:5174
 SYNC_EVERY_MINUTES=3
 GITHUB_WEBHOOK_SECRET=<only for the webhook>
-SMTP_HOST=<only for password reset email>
-SMTP_PORT=587
-SMTP_USER=<smtp user>
-SMTP_PASSWORD=<smtp password>
-MAIL_FROM=<sender address>
 ```
 
 `SYNC_EVERY_MINUTES` is how often the server looks for new repos, new PRs and test results (`0` turns it off).
 
-`FRONTEND_URL` is the only origin CORS allows, and the GitHub callback sends users back to it. Set it to the real frontend URL when you deploy.
-`FRONTEND_URL` is the only origin CORS allows, and password reset links point to it. Set it to the real frontend URL when you deploy.
+`FRONTEND_URL` is the only origin CORS allows, and GitHub redirects users there after authorization. Set it to the real frontend URL when you deploy.
 **3. Frontend**
 
 ```bash
@@ -180,17 +173,17 @@ API docs: http://localhost:8001/docs
 
 ## Deploy
 
-**Backend: AWS EC2** (Ubuntu 24.04, `t3.small`, Mumbai), behind nginx with a Let's Encrypt certificate (certbot renews it).
+**Backend on Render**
 
-- Code in `/home/ubuntu/RepoSage`, pulled with a read-only GitHub deploy key. Packages in `Backend/venv`.
-- Runs as the `systemd` service `gitaudit` with **one** uvicorn worker on `127.0.0.1:8001`, because jobs and the sync run inside the process.
-- Only ports 22 (one IP), 80 and 443 are open; nginx forwards to port 8001.
-- Logs: `sudo journalctl -u gitaudit -f`. Restart after a change: `sudo systemctl restart gitaudit`.
-- Update by hand: `git pull`, `venv/bin/pip install -r requirements.txt`, `venv/bin/alembic upgrade head`, restart.
+1. In Render, create a Blueprint from this GitHub repo using [render.yaml](render.yaml) at the repository root. It creates a free Python web service from `Backend`, applies Alembic migrations at startup, runs one Uvicorn worker on Render's `PORT`, and checks `/health`. [Render Blueprint docs](https://render.com/docs/infrastructure-as-code)
+2. Fill in the environment variables prompted by Render using the backend settings above. Use a PostgreSQL database that supports pgvector, such as your existing Neon database. Preserve `TOKEN_ENCRYPTION_KEY` if you reuse that database so existing GitHub tokens can still be decrypted. Use a fresh `JWT` secret if you want to expire sessions issued by the old deployment. Set `FRONTEND_URL` to the Vercel origin without a trailing slash.
+3. Open `https://<your-service>.onrender.com/health` after deployment and check for `{"status":"ok"}`. If you use GitHub webhooks, set `GITHUB_WEBHOOK_SECRET` on Render and update GitHub's payload URL to the new backend's `/webhooks/github` endpoint.
 
-**Frontend: Vercel** with Root Directory `Frontend`. `Frontend/vercel.json` sends every path to `index.html`, so a refresh on `/dashboard` works. Set `VITE_API_URL` (backend URL, no `/` at the end) and `VITE_GITHUB_CLIENT_ID` in Vercel, then redeploy, because Vite puts them into the build.
+**Frontend on Vercel**
 
-**GitHub OAuth App:** Homepage and callback URL must be the Vercel URL.
+Keep the Root Directory set to `Frontend`. Set `VITE_API_URL` to the Render backend origin without a trailing slash and `VITE_GITHUB_CLIENT_ID` to the GitHub OAuth App's client ID. Redeploy the frontend so Vite includes both values in the build. Set the GitHub OAuth App's Homepage URL and Authorization callback URL to the Vercel frontend URL, with the callback at `/`.
+
+Open the frontend home page and choose **Continue with GitHub**. GitHub authorizes the connection, then RepoSage opens the dashboard. Previously linked GitHub accounts still work. Legacy accounts created with email and password that never linked GitHub cannot sign in through this flow.
 
 ## Notifications and background jobs
 
@@ -212,14 +205,12 @@ API docs: http://localhost:8001/docs
 
 | Method | Endpoint | What it does |
 |---|---|---|
-| `POST` | `/register`, `/login` | account, returns a JWT |
-| `POST` | `/forgot-password`, `/reset-password` | email a reset link / set a new password with it |
 | `GET` | `/me` | current user with linked GitHub accounts |
 | `GET` | `/stats` | dashboard numbers |
 | `GET` | `/notifications`, `/notifications/unread` | latest 50 notifications / unread count for the bell |
 | `POST` | `/notifications/read` | mark all notifications as read |
 | `POST` | `/github/login`, `/github/connect` | GitHub OAuth (connect adds another account) |
-| `DELETE` | `/github/accounts/{id}` | remove a linked GitHub account |
+| `DELETE` | `/github/accounts/{id}` | remove a linked GitHub account. The last account can be reconnected to refresh its token. |
 | `GET` | `/github/repos`, `/github/repos/{owner}/{name}/pulls` | repos of all linked accounts and open PRs |
 | `POST` / `GET` | `/github/repos/{owner}/{name}/index` | start an indexing job / chunk count |
 | `POST` / `GET` | `/reviews` | start a review job / saved reviews |
@@ -233,9 +224,8 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 
 ## Security
 
-- Password reset links work once, for 30 minutes, and only a hash of the token is saved. A reset does not log out sessions that are already open.
 
-- Passwords hashed with Argon2. GitHub tokens encrypted at rest with Fernet and never sent to the browser.
+- GitHub tokens are encrypted at rest with Fernet and stay on the backend.
 - A login stays valid for 7 days (JWT and cookie).
 - The OAuth `state` parameter is checked (CSRF).
 - AI fixes go to a new branch and a new PR, and are never merged automatically.
@@ -278,7 +268,6 @@ GitHub endpoints used, with docs links: [docs/GITHUB_API.md](docs/GITHUB_API.md)
 - [x] New responsive design with light / dark theme
 - [x] Notifications with a bell: review ready, fix ready, tests passed or failed, job failed (the bell checks every 30 seconds)
 - [x] Notifications for new repos and new PRs (sync every 3 minutes, webhook for instant)
-- [x] Password reset by email
 - [x] Backend tests with pytest
 - [x] Test results update by themselves
 - [x] Background jobs for review, fix and indexing
