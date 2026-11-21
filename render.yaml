@@ -5,7 +5,8 @@ services:
     plan: free
     rootDir: Backend
     buildCommand: pip install -r requirements.txt
-    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    # The free plan runs migrations at startup because it has no pre-deploy command.
+    startCommand: alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port "$PORT" --workers 1
     healthCheckPath: /health
     envVars:
       - key: PYTHON_VERSION
