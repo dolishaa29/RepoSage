@@ -175,7 +175,7 @@ API docs: http://localhost:8001/docs
 
 **Backend on Render**
 
-1. In Render, create a Blueprint from this GitHub repo using [render.yaml](render.yaml) at the repository root. It creates a free Python web service from `Backend`, applies Alembic migrations at startup, runs one Uvicorn worker on Render's `PORT`, and checks `/health`. [Render Blueprint docs](https://render.com/docs/infrastructure-as-code)
+1. In Render, choose **New → Blueprint**, connect this GitHub repo, and set **Blueprint Path** to [`Backend/render.yaml`](Backend/render.yaml). It creates a free Python web service from `Backend`, applies Alembic migrations at startup, runs one Uvicorn worker on Render's `PORT`, and checks `/health`. [Render Blueprint docs](https://render.com/docs/infrastructure-as-code)
 2. Fill in the environment variables prompted by Render using the backend settings above. Use a PostgreSQL database that supports pgvector, such as your existing Neon database. Preserve `TOKEN_ENCRYPTION_KEY` if you reuse that database so existing GitHub tokens can still be decrypted. Use a fresh `JWT` secret if you want to expire sessions issued by the old deployment. Set `FRONTEND_URL` to the Vercel origin without a trailing slash.
 3. Open `https://<your-service>.onrender.com/health` after deployment and check for `{"status":"ok"}`. If you use GitHub webhooks, set `GITHUB_WEBHOOK_SECRET` on Render and update GitHub's payload URL to the new backend's `/webhooks/github` endpoint.
 
